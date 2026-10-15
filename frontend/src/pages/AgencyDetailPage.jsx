@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { Alert, Box, CircularProgress } from '@mui/material'
 import AgencyForm from '../components/AgencyForm'
 import IVRBuilder from '../components/IVRBuilder'
+import IVRDiagram from '../components/IVRDiagram'
 import { createAgency, getAgency, updateAgency } from '../api/agencies'
 
 export default function AgencyDetailPage() {
@@ -57,6 +58,7 @@ export default function AgencyDetailPage() {
     <Box>
       <AgencyForm initial={initial} onSubmit={handleSubmit} loading={saving} />
       {!isNew && <IVRBuilder ivr={initial?.ivr} onSave={handleSaveIVR} />}
+      {!isNew && <IVRDiagram ivr={initial?.ivr} agencyName={initial?.name} />}
     </Box>
   )
 }

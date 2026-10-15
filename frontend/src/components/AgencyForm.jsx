@@ -105,7 +105,7 @@ export default function AgencyForm({ initial, onSubmit, loading }) {
               label="Abreviatura"
               value={form.abbreviation} onChange={set('abbreviation')}
               required fullWidth size="small"
-              inputProps={{ style: { textTransform: 'uppercase' } }}
+              slotProps={{ htmlInput: { style: { textTransform: 'uppercase' } } }}
             />
           </Grid>
           <Grid size={{ xs: 6, md: 3 }}>
@@ -135,7 +135,7 @@ export default function AgencyForm({ initial, onSubmit, loading }) {
                 label="Número inicio (10 dígitos)"
                 value={r.from} onChange={setRange(i, 'from')}
                 fullWidth size="small" required
-                inputProps={{ maxLength: 10, inputMode: 'numeric' }}
+                slotProps={{ htmlInput: { maxLength: 10, inputMode: 'numeric' } }}
               />
             </Grid>
             <Grid size={{ xs: 12, sm: 5 }}>
@@ -143,7 +143,7 @@ export default function AgencyForm({ initial, onSubmit, loading }) {
                 label="Número final (10 dígitos)"
                 value={r.to} onChange={setRange(i, 'to')}
                 fullWidth size="small" required
-                inputProps={{ maxLength: 10, inputMode: 'numeric' }}
+                slotProps={{ htmlInput: { maxLength: 10, inputMode: 'numeric' } }}
               />
             </Grid>
             <Grid size={{ xs: 12, sm: 2 }} sx={{ display: 'flex', justifyContent: 'center' }}>
@@ -179,7 +179,7 @@ export default function AgencyForm({ initial, onSubmit, loading }) {
                   type="time" size="small" fullWidth
                   value={hours.start}
                   onChange={e => setHours(h => ({ ...h, start: e.target.value }))}
-                  InputLabelProps={{ shrink: true }}
+                  slotProps={{ inputLabel: { shrink: true } }}
                 />
               </Grid>
               <Grid size={{ xs: 6, md: 3 }}>
@@ -188,7 +188,7 @@ export default function AgencyForm({ initial, onSubmit, loading }) {
                   type="time" size="small" fullWidth
                   value={hours.end}
                   onChange={e => setHours(h => ({ ...h, end: e.target.value }))}
-                  InputLabelProps={{ shrink: true }}
+                  slotProps={{ inputLabel: { shrink: true } }}
                 />
               </Grid>
               <Grid size={{ xs: 12, md: 6 }}>
