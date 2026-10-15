@@ -1,17 +1,20 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ReactFlow, Background, Controls, MiniMap,
   addEdge, useEdgesState, useNodesState, useReactFlow, ReactFlowProvider,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { Box, Button, ButtonGroup, Divider, Typography } from '@mui/material'
+import { Box, Button, ButtonGroup, CircularProgress, Divider, Tooltip, Typography } from '@mui/material'
 import AccountTreeIcon from '@mui/icons-material/AccountTree'
 import AddIcon from '@mui/icons-material/Add'
 import SaveIcon from '@mui/icons-material/Save'
+import ImageIcon from '@mui/icons-material/Image'
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf'
 
 import { nodeTypes } from './IVRNodeTypes'
 import NodeEditor from './NodeEditor'
 import { flowToTree, makeNode, treeToFlow } from './ivrUtils'
+import { useExportDiagram } from '../hooks/useExportDiagram'
 
 const NODE_MENU = [
   { type: 'menu',        label: 'Menú' },
@@ -22,12 +25,17 @@ const NODE_MENU = [
   { type: 'cadd',        label: 'CADD' },
 ]
 
-// Componente interno: tiene acceso a useReactFlow dentro del Provider
-function FlowCanvas({ ivr, onSave }) {
+function FlowCanvas({ ivr, agencyName, onSave }) {
   const [nodes, setNodes, onNodesChange] = useNodesState([])
   const [edges, setEdges, onEdgesChange] = useEdgesState([])
   const [selected, setSelected] = useState(null)
-  const { screenToFlowPosition, getViewport } = useReactFlow()
+  const { getViewport, getNodes } = useReactFlow()
+
+  const canvasContainerRef = useRef(null)
+
+  const { exportPNG, exportPDF, exporting } = useExportDiagram(
+    canvasContainerRef, agencyName, getNodes
+  )
 
   useEffect(() => {
     const { nodes: n, edges: e } = treeToFlow(ivr ?? [])
@@ -43,11 +51,10 @@ function FlowCanvas({ ivr, onSave }) {
   const onNodeClick = useCallback((_, node) => setSelected(node), [])
 
   const addNode = (type) => {
-    // Calcula el centro visible del canvas en coordenadas del flow
     const { x, y, zoom } = getViewport()
     const canvasEl = document.querySelector('.react-flow__renderer')
     const rect = canvasEl?.getBoundingClientRect() ?? { width: 800, height: 520 }
-    const centerX = (rect.width / 2 - x) / zoom
+    const centerX = (rect.width  / 2 - x) / zoom
     const centerY = (rect.height / 2 - y) / zoom
 
     const data = makeNode(type)
@@ -72,7 +79,7 @@ function FlowCanvas({ ivr, onSave }) {
 
   return (
     <>
-      {/* Barra de agregar nodos */}
+      {/* Barra superior */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'wrap' }}>
         <Typography variant="caption" color="text.secondary">Agregar:</Typography>
         <ButtonGroup size="small" variant="outlined">
@@ -83,13 +90,53 @@ function FlowCanvas({ ivr, onSave }) {
           ))}
         </ButtonGroup>
         <Box sx={{ flexGrow: 1 }} />
-        <Button variant="contained" size="small" startIcon={<SaveIcon />} onClick={() => onSave(flowToTree(nodes, edges))}>
+
+        <ButtonGroup size="small" variant="outlined">
+          <Tooltip title="Exportar diagrama completo como PNG">
+            <span>
+              <Button
+                startIcon={exporting ? <CircularProgress size={14} /> : <ImageIcon />}
+                onClick={exportPNG}
+                disabled={exporting}
+              >
+                PNG
+              </Button>
+            </span>
+          </Tooltip>
+          <Tooltip title="Exportar diagrama completo como PDF">
+            <span>
+              <Button
+                startIcon={exporting ? <CircularProgress size={14} /> : <PictureAsPdfIcon />}
+                onClick={exportPDF}
+                disabled={exporting}
+              >
+                PDF
+              </Button>
+            </span>
+          </Tooltip>
+        </ButtonGroup>
+
+        <Button
+          variant="contained"
+          size="small"
+          startIcon={<SaveIcon />}
+          onClick={() => onSave(flowToTree(nodes, edges))}
+        >
           Guardar IVR
         </Button>
       </Box>
 
       {/* Canvas */}
-      <Box sx={{ height: 520, border: '1px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden' }}>
+      <Box
+        ref={canvasContainerRef}
+        sx={{
+          height: 520,
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 2,
+          overflow: 'hidden',
+        }}
+      >
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -116,7 +163,7 @@ function FlowCanvas({ ivr, onSave }) {
   )
 }
 
-export default function IVRBuilder({ ivr, onSave }) {
+export default function IVRBuilder({ ivr, agencyName, onSave }) {
   return (
     <Box sx={{ mt: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
@@ -125,7 +172,7 @@ export default function IVRBuilder({ ivr, onSave }) {
       </Box>
       <Divider sx={{ mb: 1 }} />
       <ReactFlowProvider>
-        <FlowCanvas ivr={ivr} onSave={onSave} />
+        <FlowCanvas ivr={ivr} agencyName={agencyName} onSave={onSave} />
       </ReactFlowProvider>
     </Box>
   )

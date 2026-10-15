@@ -57,7 +57,7 @@ export default function AgencyDetailPage() {
   return (
     <Box>
       <AgencyForm initial={initial} onSubmit={handleSubmit} loading={saving} />
-      {!isNew && <IVRBuilder ivr={initial?.ivr} onSave={handleSaveIVR} />}
+      {!isNew && <IVRBuilder ivr={initial?.ivr} agencyName={initial?.name} onSave={handleSaveIVR} />}
       {!isNew && <IVRDiagram ivr={initial?.ivr} agencyName={initial?.name} />}
     </Box>
   )
