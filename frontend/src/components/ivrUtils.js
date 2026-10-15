@@ -6,6 +6,13 @@ const NODE_HEIGHT = 60
 const H_GAP = 60
 const V_GAP = 80
 
+// ── helpers ───────────────────────────────────────────────────────────────────
+export const normalizeExtensions = (val) => {
+  if (!val) return []
+  if (Array.isArray(val)) return val.flatMap(e => String(e).split(',').map(s => s.trim())).filter(Boolean)
+  return String(val).split(',').map(s => s.trim()).filter(Boolean)
+}
+
 // ── árbol → flow ──────────────────────────────────────────────────────────────
 export function treeToFlow(tree) {
   if (!tree?.length) return { nodes: [], edges: [] }
@@ -23,7 +30,10 @@ export function treeToFlow(tree) {
       id,
       type: 'ivrNode',
       position: { x, y },
-      data: { ...nodeData },
+      data: {
+        ...nodeData,
+        ...(nodeData.type === 'ring_group' && { extensions: normalizeExtensions(nodeData.extensions) }),
+      },
     })
 
     if (parentId) {
@@ -54,6 +64,7 @@ export function flowToTree(nodes, edges) {
 
   const build = (id) => {
     const data = { ...nodeMap[id] }
+    if (data.type === 'ring_group') data.extensions = normalizeExtensions(data.extensions)
     const childIds = childrenMap[id] || []
     if (childIds.length) data.children = childIds.map(build)
     else delete data.children
@@ -71,8 +82,8 @@ export function makeNode(type) {
   const id = `${type}_${Date.now()}_${_counter++}`
   const base = { id, type, children: [] }
   switch (type) {
-    case 'menu':    return { ...base, digit: '', label: '' }
-    case 'timeout': return { ...base, label: 'Sin dígito' }
+    case 'menu':        return { ...base, digit: '', label: '' }
+    case 'timeout':     return { ...base, label: 'Sin dígito' }
     case 'ring_group':  return { ...base, extensions: [], rings: 3 }
     case 'ring_single': return { ...base, extension: '', rings: 5 }
     case 'voicemail':   return { ...base }
