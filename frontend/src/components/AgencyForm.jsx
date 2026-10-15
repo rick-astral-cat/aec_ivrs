@@ -129,7 +129,7 @@ export default function AgencyForm({ initial, onSubmit, loading }) {
         <Divider sx={{ mb: 2 }} />
 
         {ranges.map((r, i) => (
-          <Grid container spacing={2} key={i} sx={{ mb: 1 }} alignItems="center">
+          <Grid container spacing={2} key={i} sx={{ mb: 1, alignItems: 'center' }}>
             <Grid size={{ xs: 12, sm: 5 }}>
               <TextField
                 label="Número inicio (10 dígitos)"
@@ -164,7 +164,7 @@ export default function AgencyForm({ initial, onSubmit, loading }) {
         </Typography>
         <Divider sx={{ mb: 2 }} />
 
-        <Grid container spacing={2} alignItems="center">
+        <Grid container spacing={2} sx={{ alignItems: 'center' }}>
           <Grid size={{ xs: 12 }}>
             <FormControlLabel
               control={<Switch checked={form.has_schedule} onChange={set('has_schedule')} />}

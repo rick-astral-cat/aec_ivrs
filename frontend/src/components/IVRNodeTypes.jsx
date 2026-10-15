@@ -34,14 +34,15 @@ function NodeShell({ data, children }) {
       borderRadius: 2,
       bgcolor: s.bg,
       p: 1,
-      minWidth: 200,
-      maxWidth: 240,
+      width: 220,          // ancho fijo para que los edges se anclen siempre al mismo punto
+      boxSizing: 'border-box',
+      overflow: 'hidden',  // evita que el contenido rompa el borde del nodo
       fontSize: 12,
       cursor: 'grab',
     }}>
       <Handle type="target" position={Position.Top} />
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-        <Box sx={{ color: s.color, display: 'flex' }}>{s.icon}</Box>
+        <Box sx={{ color: s.color, display: 'flex', flexShrink: 0 }}>{s.icon}</Box>
         <Chip label={LABELS[data.type]} size="small"
           sx={{ bgcolor: s.color, color: '#fff', height: 18, fontSize: 10 }} />
       </Box>
@@ -53,9 +54,18 @@ function NodeShell({ data, children }) {
 
 function Line({ label, value }) {
   if (!value && value !== 0) return null
+  const text = Array.isArray(value) ? value.join(', ') : String(value)
   return (
-    <Typography variant="caption" display="block" sx={{ lineHeight: 1.4 }}>
-      <strong>{label}:</strong> {Array.isArray(value) ? value.join(', ') : value}
+    <Typography
+      variant="caption"
+      display="block"
+      sx={{
+        lineHeight: 1.4,
+        wordBreak: 'break-word',   // rompe palabras largas (ej: extensiones sin espacios)
+        overflowWrap: 'anywhere',
+      }}
+    >
+      <strong>{label}:</strong> {text}
     </Typography>
   )
 }

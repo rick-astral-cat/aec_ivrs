@@ -7,6 +7,7 @@ import AccountTreeIcon from '@mui/icons-material/AccountTree'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import DownloadIcon from '@mui/icons-material/Download'
 import { treeToMermaid } from './mermaidUtils'
+import { normalizeTree } from './ivrUtils'
 
 mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' })
 
@@ -17,7 +18,7 @@ export default function IVRDiagram({ ivr, agencyName }) {
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState(null)
 
-  const mermaidText = treeToMermaid(ivr, agencyName)
+  const mermaidText = treeToMermaid(normalizeTree(ivr), agencyName)
 
   useEffect(() => {
     if (!mermaidText || !containerRef.current) return

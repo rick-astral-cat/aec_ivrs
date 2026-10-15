@@ -76,6 +76,17 @@ export function flowToTree(nodes, edges) {
     .map(n => build(n.id))
 }
 
+// ── normaliza árbol completo (para datos crudos del backend) ─────────────────
+export function normalizeTree(tree) {
+  if (!tree?.length) return []
+  const walkNode = (n) => ({
+    ...n,
+    ...(n.type === 'ring_group' && { extensions: normalizeExtensions(n.extensions) }),
+    ...(n.children?.length && { children: n.children.map(walkNode) }),
+  })
+  return tree.map(walkNode)
+}
+
 // ── factory de nodo nuevo ─────────────────────────────────────────────────────
 let _counter = 1
 export function makeNode(type) {
