@@ -7,7 +7,8 @@ import {
 import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
-import { getAgencies, deleteAgency } from '../api/agencies'
+import ContentCopyIcon from '@mui/icons-material/ContentCopy'
+import { getAgencies, deleteAgency, createAgency } from '../api/agencies'
 
 export default function AgenciesPage() {
   const [agencies, setAgencies] = useState([])
@@ -20,6 +21,13 @@ export default function AgenciesPage() {
     if (!confirm('¿Eliminar agencia?')) return
     await deleteAgency(id)
     load()
+  }
+
+  const handleCopy = async (a) => {
+    const { id, ...rest } = a
+    const copy = { ...rest, name: `${a.name} - Copia`, abbreviation: `${a.abbreviation}_C` }
+    const { data } = await createAgency(copy)
+    navigate(`/agencies/${data.id}`)
   }
 
   return (
@@ -76,6 +84,11 @@ export default function AgenciesPage() {
                   <Tooltip title="Editar">
                     <IconButton size="small" onClick={() => navigate(`/agencies/${a.id}`)}>
                       <EditIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Copiar agencia">
+                    <IconButton size="small" onClick={() => handleCopy(a)}>
+                      <ContentCopyIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
                   <Tooltip title="Eliminar">
