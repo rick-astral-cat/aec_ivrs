@@ -8,6 +8,7 @@ import { Box, Button, ButtonGroup, CircularProgress, Divider, Tooltip, Typograph
 import AccountTreeIcon from '@mui/icons-material/AccountTree'
 import AddIcon from '@mui/icons-material/Add'
 import SaveIcon from '@mui/icons-material/Save'
+import CheckIcon from '@mui/icons-material/Check'
 import ImageIcon from '@mui/icons-material/Image'
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf'
 
@@ -29,19 +30,27 @@ function FlowCanvas({ ivr, agencyName, onSave }) {
   const [nodes, setNodes, onNodesChange] = useNodesState([])
   const [edges, setEdges, onEdgesChange] = useEdgesState([])
   const [selected, setSelected] = useState(null)
+  const [saveSuccess, setSaveSuccess] = useState(false)
   const { getViewport, getNodes } = useReactFlow()
 
   const canvasContainerRef = useRef(null)
+  const lastSavedTreeJsonRef = useRef(null)
 
   const { exportPNG, exportPDF, exporting } = useExportDiagram(
     canvasContainerRef, agencyName, getNodes
   )
 
   useEffect(() => {
+    const ivrJson = JSON.stringify(ivr ?? [])
+    // Si la actualización proviene de nuestro propio onSave, evitamos resetear el canvas
+    if (lastSavedTreeJsonRef.current === ivrJson) {
+      return
+    }
+
     const { nodes: n, edges: e } = treeToFlow(ivr ?? [])
     setNodes(n)
     setEdges(e)
-  }, [ivr])
+  }, [ivr, setNodes, setEdges])
 
   const onConnect = useCallback(
     (params) => setEdges(eds => addEdge({ ...params, type: 'smoothstep' }, eds)),
@@ -119,10 +128,18 @@ function FlowCanvas({ ivr, agencyName, onSave }) {
         <Button
           variant="contained"
           size="small"
-          startIcon={<SaveIcon />}
-          onClick={() => onSave(flowToTree(nodes, edges))}
+          color={saveSuccess ? 'success' : 'primary'}
+          startIcon={saveSuccess ? <CheckIcon /> : <SaveIcon />}
+          onClick={async () => {
+            const currentNodes = (getNodes && getNodes().length > 0) ? getNodes() : nodes
+            const tree = flowToTree(currentNodes, edges)
+            lastSavedTreeJsonRef.current = JSON.stringify(tree)
+            await onSave(tree)
+            setSaveSuccess(true)
+            setTimeout(() => setSaveSuccess(false), 2000)
+          }}
         >
-          Guardar IVR
+          {saveSuccess ? '¡Guardado!' : 'Guardar IVR'}
         </Button>
       </Box>
 
