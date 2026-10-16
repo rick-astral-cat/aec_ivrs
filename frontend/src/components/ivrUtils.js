@@ -22,14 +22,24 @@ export function treeToFlow(tree) {
 
   const walk = (nodeData, parentId, depth) => {
     const id = nodeData.id
-    const x = xCursor
-    const y = depth * (NODE_HEIGHT + V_GAP)
+    const defaultX = xCursor
+    const defaultY = depth * (NODE_HEIGHT + V_GAP)
     xCursor += NODE_WIDTH + H_GAP
+
+    // Si el nodo ya tiene posición guardada (x, y), se respeta; si no, se usa el layout calculado
+    const hasSavedPosition =
+      nodeData.position &&
+      typeof nodeData.position.x === 'number' &&
+      typeof nodeData.position.y === 'number'
+
+    const position = hasSavedPosition
+      ? { x: nodeData.position.x, y: nodeData.position.y }
+      : { x: defaultX, y: defaultY }
 
     nodes.push({
       id,
       type: 'ivrNode',
-      position: { x, y },
+      position,
       data: {
         ...nodeData,
         ...(nodeData.type === 'ring_group' && { extensions: normalizeExtensions(nodeData.extensions) }),
@@ -60,7 +70,18 @@ export function flowToTree(nodes, edges) {
     hasParent.add(e.target)
   })
 
-  const nodeMap = Object.fromEntries(nodes.map(n => [n.id, n.data]))
+  // Preservar la posición { x, y } actual de cada nodo en el árbol JSON
+  const nodeMap = Object.fromEntries(
+    nodes.map(n => [
+      n.id,
+      {
+        ...n.data,
+        position: n.position
+          ? { x: Math.round(n.position.x), y: Math.round(n.position.y) }
+          : undefined,
+      },
+    ])
+  )
 
   const build = (id) => {
     const data = { ...nodeMap[id] }
