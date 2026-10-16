@@ -7,6 +7,7 @@ import {
   Box,
   Button,
   ButtonGroup,
+  Chip,
   CircularProgress,
   Divider,
   Tooltip,
@@ -18,7 +19,7 @@ import DownloadIcon from '@mui/icons-material/Download'
 import ImageIcon from '@mui/icons-material/Image'
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf'
 
-import { treeToMermaid } from './mermaidUtils'
+import { treeToMermaid, MERMAID_NODE_STYLES } from './mermaidUtils'
 import { normalizeTree } from './ivrUtils'
 
 mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' })
@@ -385,7 +386,42 @@ export default function IVRDiagram({ ivr, agencyName, agency, flowExportRef }) {
           </Tooltip>
         </ButtonGroup>
       </Box>
-      <Divider sx={{ mb: 2 }} />
+      <Divider sx={{ mb: 1.5 }} />
+
+      {/* Leyenda visual de tipos de nodo con colores correspondientes */}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          mb: 2,
+          flexWrap: 'wrap',
+          bgcolor: 'grey.50',
+          px: 1.5,
+          py: 1,
+          borderRadius: 1.5,
+          border: '1px solid',
+          borderColor: 'divider',
+        }}
+      >
+        <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ mr: 0.5 }}>
+          Leyenda de colores:
+        </Typography>
+        {Object.entries(MERMAID_NODE_STYLES).map(([type, style]) => (
+          <Chip
+            key={type}
+            label={style.label}
+            size="small"
+            sx={{
+              bgcolor: style.fill,
+              color: style.color,
+              border: `1.5px solid ${style.stroke}`,
+              fontWeight: 600,
+              fontSize: '0.75rem',
+            }}
+          />
+        ))}
+      </Box>
 
       {error ? (
         <Alert severity="warning">{error}</Alert>
