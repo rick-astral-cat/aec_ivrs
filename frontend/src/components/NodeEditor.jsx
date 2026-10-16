@@ -73,6 +73,20 @@ export default function NodeEditor({ node, onChange, onDelete, onClose }) {
         </>
       )}
 
+      {d.type === 'voicemail' && (
+        <TextField
+          label="Correo electrónico (opcional)"
+          value={d.email ?? ''}
+          onChange={set('email')}
+          type="email"
+          size="small"
+          fullWidth
+          placeholder="buzon@dalton.com.mx"
+          helperText="Correo para notificaciones de buzón"
+          sx={{ mb: 2 }}
+        />
+      )}
+
       {d.type === 'cadd' && (
         <TextField label="Número destino" value={d.destination ?? ''} onChange={set('destination')}
           size="small" fullWidth sx={{ mb: 2 }} />
