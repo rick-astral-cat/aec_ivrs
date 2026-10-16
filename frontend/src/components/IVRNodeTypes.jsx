@@ -60,7 +60,8 @@ function Line({ label, value }) {
       variant="caption"
       display="block"
       sx={{
-        lineHeight: 1.4,
+        lineHeight: 1.5,
+        mb: 0.5,
         wordBreak: 'break-word',   // rompe palabras largas (ej: extensiones sin espacios)
         overflowWrap: 'anywhere',
       }}
@@ -82,7 +83,7 @@ export function IVRNode({ data }) {
     case 'timeout':
       return (
         <NodeShell data={data}>
-          <Typography variant="caption">Sin dígito presionado</Typography>
+          <Typography variant="caption" display="block">Sin dígito presionado</Typography>
         </NodeShell>
       )
     case 'ring_group':
@@ -102,7 +103,7 @@ export function IVRNode({ data }) {
     case 'voicemail':
       return (
         <NodeShell data={data}>
-          <Typography variant="caption" display="block">Desvío a buzón de voz</Typography>
+          <Typography variant="caption" display="block" sx={{ mb: 0.5 }}>Desvío a buzón de voz</Typography>
           <Line label="Correo" value={data.email} />
         </NodeShell>
       )
@@ -113,7 +114,7 @@ export function IVRNode({ data }) {
         </NodeShell>
       )
     default:
-      return <NodeShell data={data}><Typography variant="caption">{data.type}</Typography></NodeShell>
+      return <NodeShell data={data}><Typography variant="caption" display="block">{data.type}</Typography></NodeShell>
   }
 }
 
