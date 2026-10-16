@@ -92,6 +92,29 @@ function FlowCanvas({ ivr, agencyName, onSave, flowExportRef }) {
     setSelected(null)
   }
 
+  const duplicateSelected = () => {
+    if (!selected) return
+
+    // ID único para el nodo copiado
+    const newId = `${selected.data.type}_${Date.now()}`
+
+    const newNode = {
+      id: newId,
+      type: 'ivrNode',
+      position: {
+        // Aparece al lado derecho del nodo original, ligeramente abajo
+        x: selected.position.x + 260,
+        y: selected.position.y + 40,
+      },
+      // Copia toda la información del nodo, con el nuevo id y sin hijos heredados
+      data: { ...selected.data, id: newId, children: [] },
+    }
+
+    setNodes(ns => [...ns, newNode])
+    // Seleccionar el nuevo nodo para poder editarlo de inmediato
+    setSelected(newNode)
+  }
+
   return (
     <>
       {/* Barra superior */}
@@ -180,6 +203,7 @@ function FlowCanvas({ ivr, agencyName, onSave, flowExportRef }) {
         node={selected}
         onChange={updateSelected}
         onDelete={deleteSelected}
+        onDuplicate={duplicateSelected}
         onClose={() => setSelected(null)}
       />
     </>
