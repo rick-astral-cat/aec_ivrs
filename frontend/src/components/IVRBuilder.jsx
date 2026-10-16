@@ -65,6 +65,11 @@ function FlowCanvas({ ivr, agencyName, onSave, flowExportRef }) {
 
   const onNodeClick = useCallback((_, node) => setSelected(node), [])
 
+  // Eliminar una conexión al hacer clic sobre ella (para corregir errores)
+  const onEdgeClick = useCallback((_, edge) => {
+    setEdges(es => es.filter(e => e.id !== edge.id))
+  }, [setEdges])
+
   const addNode = (type) => {
     const { x, y, zoom } = getViewport()
     const canvasEl = document.querySelector('.react-flow__renderer')
@@ -173,6 +178,11 @@ function FlowCanvas({ ivr, agencyName, onSave, flowExportRef }) {
       </Box>
 
       {/* Canvas */}
+      <Box sx={{ mb: 0.5 }}>
+        <Typography variant="caption" color="text.secondary">
+          Tip: haz clic en una línea para desconectarla, o selecciónala y presiona Suprimir.
+        </Typography>
+      </Box>
       <Box
         ref={canvasContainerRef}
         sx={{
@@ -191,6 +201,9 @@ function FlowCanvas({ ivr, agencyName, onSave, flowExportRef }) {
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           onNodeClick={onNodeClick}
+          onEdgeClick={onEdgeClick}
+          deleteKeyCode={['Backspace', 'Delete']}
+          edgesReconnectable
           fitView
         >
           <Background />

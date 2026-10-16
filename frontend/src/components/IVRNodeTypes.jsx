@@ -58,8 +58,10 @@ function Line({ label, value }) {
   return (
     <Typography
       variant="caption"
-      display="block"
+      component="div"
       sx={{
+        display: 'block',
+        width: '100%',
         lineHeight: 1.5,
         mb: 0.5,
         wordBreak: 'break-word',   // rompe palabras largas (ej: extensiones sin espacios)
