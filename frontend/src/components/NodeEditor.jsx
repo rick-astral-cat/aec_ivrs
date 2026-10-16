@@ -4,6 +4,7 @@ import {
   TextField, Typography,
 } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
+import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import DeleteIcon from '@mui/icons-material/Delete'
 
 const NODE_TYPES = [
@@ -15,7 +16,7 @@ const NODE_TYPES = [
   { value: 'cadd',        label: 'CADD' },
 ]
 
-export default function NodeEditor({ node, onChange, onDelete, onClose }) {
+export default function NodeEditor({ node, onChange, onDelete, onDuplicate, onClose }) {
   // Extensiones como texto libre: permite escribir comas sin que el split
   // inmediato las elimine. Se convierte a array solo en onBlur.
   // Los hooks van antes de cualquier return condicional.
@@ -110,7 +111,10 @@ export default function NodeEditor({ node, onChange, onDelete, onClose }) {
           size="small" fullWidth sx={{ mb: 2 }} />
       )}
 
-      <Box sx={{ mt: 'auto', pt: 2 }}>
+      <Box sx={{ mt: 'auto', pt: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <Button fullWidth variant="outlined" startIcon={<ContentCopyIcon />} onClick={onDuplicate}>
+          Duplicar nodo
+        </Button>
         <Button fullWidth color="error" variant="outlined" startIcon={<DeleteIcon />} onClick={onDelete}>
           Eliminar nodo
         </Button>
