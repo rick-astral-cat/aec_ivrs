@@ -24,7 +24,7 @@ function nodeLabel(n) {
       return `["Ext. ${sanitize(n.extension)} - ${rings}"]`
     }
     case 'voicemail':
-      return `["Buzon de voz"]`
+      return n.email ? `["Buzon de voz: ${sanitize(n.email)}"]` : `["Buzon de voz"]`
     case 'cadd':
       return `["CADD: ${sanitize(n.destination)}"]`
     default:

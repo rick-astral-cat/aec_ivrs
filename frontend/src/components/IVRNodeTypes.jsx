@@ -102,7 +102,8 @@ export function IVRNode({ data }) {
     case 'voicemail':
       return (
         <NodeShell data={data}>
-          <Typography variant="caption">Desvío a buzón de voz</Typography>
+          <Typography variant="caption" display="block">Desvío a buzón de voz</Typography>
+          <Line label="Correo" value={data.email} />
         </NodeShell>
       )
     case 'cadd':

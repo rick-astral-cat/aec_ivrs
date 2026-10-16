@@ -1,11 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
 import mermaid from 'mermaid'
+import { toPng } from 'html-to-image'
+import jsPDF from 'jspdf'
 import {
-  Alert, Box, Button, ButtonGroup, Divider, Typography,
+  Alert,
+  Box,
+  Button,
+  ButtonGroup,
+  CircularProgress,
+  Divider,
+  Tooltip,
+  Typography,
 } from '@mui/material'
 import AccountTreeIcon from '@mui/icons-material/AccountTree'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import DownloadIcon from '@mui/icons-material/Download'
+import ImageIcon from '@mui/icons-material/Image'
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf'
+
 import { treeToMermaid } from './mermaidUtils'
 import { normalizeTree } from './ivrUtils'
 
@@ -13,10 +25,75 @@ mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose
 
 let _diagramId = 0
 
-export default function IVRDiagram({ ivr, agencyName }) {
+// Captura el SVG de Mermaid con alta fidelidad a PNG (2x retina)
+async function captureMermaid(containerEl) {
+  const svgEl = containerEl?.querySelector('svg')
+  if (!svgEl) throw new Error('No se encontró el elemento SVG del diagrama Mermaid')
+
+  const vb = svgEl.viewBox?.baseVal
+  const bbox = svgEl.getBoundingClientRect()
+  const w = Math.ceil((vb && vb.width > 0) ? vb.width : (bbox.width || 800))
+  const h = Math.ceil((vb && vb.height > 0) ? vb.height : (bbox.height || 600))
+
+  // Intento primario con html-to-image
+  try {
+    const dataUrl = await toPng(containerEl, {
+      backgroundColor: '#ffffff',
+      pixelRatio: 2,
+      cacheBust: true,
+      skipFonts: true,
+    })
+    if (dataUrl && dataUrl.length > 200) {
+      return { dataUrl, width: w, height: h }
+    }
+  } catch (err) {
+    console.warn('toPng fallback to XMLSerializer rasterizer:', err)
+  }
+
+  // Fallback nativo usando Canvas y XMLSerializer
+  return new Promise((resolve, reject) => {
+    try {
+      const clonedSvg = svgEl.cloneNode(true)
+      clonedSvg.setAttribute('width', `${w}`)
+      clonedSvg.setAttribute('height', `${h}`)
+      clonedSvg.style.maxWidth = 'none'
+
+      const svgXml = new XMLSerializer().serializeToString(clonedSvg)
+      const blob = new Blob([svgXml], { type: 'image/svg+xml;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const img = new Image()
+
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        const scale = 2
+        canvas.width = w * scale
+        canvas.height = h * scale
+        const ctx = canvas.getContext('2d')
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        URL.revokeObjectURL(url)
+        resolve({ dataUrl: canvas.toDataURL('image/png'), width: w, height: h })
+      }
+
+      img.onerror = () => {
+        URL.revokeObjectURL(url)
+        reject(new Error('No se pudo convertir el SVG a imagen'))
+      }
+
+      img.src = url
+    } catch (e) {
+      reject(e)
+    }
+  })
+}
+
+export default function IVRDiagram({ ivr, agencyName, agency }) {
   const containerRef = useRef(null)
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState(null)
+  const [exportingPng, setExportingPng] = useState(false)
+  const [exportingPdf, setExportingPdf] = useState(false)
 
   const mermaidText = treeToMermaid(normalizeTree(ivr), agencyName)
 
@@ -38,7 +115,7 @@ export default function IVRDiagram({ ivr, agencyName }) {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const handleDownload = () => {
+  const handleDownloadMd = () => {
     const blob = new Blob([mermaidText], { type: 'text/markdown' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -48,43 +125,242 @@ export default function IVRDiagram({ ivr, agencyName }) {
     URL.revokeObjectURL(url)
   }
 
+  // Exportar Mermaid a imagen PNG
+  const handleExportPng = async () => {
+    if (!containerRef.current) return
+    setExportingPng(true)
+    try {
+      const { dataUrl } = await captureMermaid(containerRef.current)
+      const link = document.createElement('a')
+      const safeName = (agency?.name || agencyName || 'diagrama').replace(/\s+/g, '_')
+      link.download = `mermaid_${safeName}.png`
+      link.href = dataUrl
+      link.click()
+    } catch (err) {
+      console.error(err)
+      alert('Error al exportar la imagen del diagrama.')
+    } finally {
+      setExportingPng(false)
+    }
+  }
+
+  // Exportar PDF completo con ficha técnica de la agencia + diagrama
+  const handleExportPdf = async () => {
+    if (!containerRef.current) return
+    setExportingPdf(true)
+    try {
+      const { dataUrl, width: imgW, height: imgH } = await captureMermaid(containerRef.current)
+
+      // Dimensiones A4 vertical (portrait): 595.28 x 841.89 pt
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
+      const pageW = 595.28
+      const pageH = 841.89
+      const margin = 32
+
+      // 1. Encabezado Dalton (Banner rojo)
+      pdf.setFillColor(200, 16, 46) // Rojo Dalton #C8102E
+      pdf.rect(0, 0, pageW, 60, 'F')
+
+      pdf.setTextColor(255, 255, 255)
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(16)
+      pdf.text('AEC IVRS — DALTON IVR MANAGER', margin, 28)
+
+      pdf.setFont('helvetica', 'normal')
+      pdf.setFontSize(9.5)
+      pdf.text('Ficha Técnica de Agencia y Flujo IVR (Avaya Enterprise Cloud)', margin, 45)
+
+      // 2. Ficha de Datos Generales de la Agencia
+      const cardY = 75
+      const cardW = pageW - margin * 2
+      const cardH = 105
+
+      pdf.setFillColor(248, 250, 252)
+      pdf.setDrawColor(226, 232, 240)
+      pdf.setLineWidth(0.8)
+      pdf.roundedRect(margin, cardY, cardW, cardH, 4, 4, 'FD')
+
+      // Título de la tarjeta
+      pdf.setTextColor(200, 16, 46)
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(10.5)
+      pdf.text('DATOS GENERALES DE LA AGENCIA', margin + 12, cardY + 18)
+
+      pdf.setDrawColor(200, 16, 46)
+      pdf.setLineWidth(1)
+      pdf.line(margin + 12, cardY + 22, margin + 200, cardY + 22)
+
+      // Columna Izquierda (x = margin + 12)
+      const col1X = margin + 12
+      const row1Y = cardY + 38
+      const lineH = 15
+
+      const drawField = (label, val, x, y, maxW = 220) => {
+        pdf.setFont('helvetica', 'bold')
+        pdf.setFontSize(8.5)
+        pdf.setTextColor(80, 80, 80)
+        pdf.text(label, x, y)
+
+        const labelWidth = pdf.getTextWidth(label)
+        pdf.setFont('helvetica', 'normal')
+        pdf.setTextColor(20, 20, 20)
+        const cleanVal = String(val ?? 'No especificado')
+        const lines = pdf.splitTextToSize(cleanVal, maxW - labelWidth)
+        pdf.text(lines, x + labelWidth + 4, y)
+      }
+
+      drawField('Agencia: ', agency?.name || agencyName || 'N/A', col1X, row1Y, 230)
+      drawField('Abreviatura: ', agency?.abbreviation || 'N/A', col1X, row1Y + lineH, 230)
+      drawField('Región: ', agency?.region || 'N/A', col1X, row1Y + lineH * 2, 230)
+      drawField('Emisión: ', new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' }), col1X, row1Y + lineH * 3, 230)
+
+      // Columna Derecha (x = margin + 250)
+      const col2X = margin + 250
+      const hoursText = agency?.has_schedule
+        ? (agency?.business_hours || 'Configurado')
+        : 'Sin horario configurado'
+      const mailboxText = agency?.after_hours_mailbox || 'No asignado'
+
+      drawField('Horario: ', hoursText, col2X, row1Y, 250)
+      drawField('Buzón fuera horario: ', mailboxText, col2X, row1Y + lineH, 250)
+      drawField('Rangos telefónicos: ', agency?.phone_ranges || 'No especificado', col2X, row1Y + lineH * 2, 250)
+
+      // 3. Sección del Diagrama de Flujo IVR (Mermaid)
+      const diagTitleY = cardY + cardH + 20
+      pdf.setTextColor(26, 26, 26)
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(10.5)
+      pdf.text('ESTRUCTURA DEL FLUJO IVR (DIAGRAMA MERMAID)', margin, diagTitleY)
+
+      pdf.setDrawColor(226, 232, 240)
+      pdf.setLineWidth(0.8)
+      pdf.line(margin, diagTitleY + 5, pageW - margin, diagTitleY + 5)
+
+      // Cálculo de dimensiones e inserción de imagen
+      const availW = pageW - margin * 2
+      const availH = pageH - (diagTitleY + 15) - 35 // espacio restante antes del pie de página
+      const scale = Math.min(availW / imgW, availH / imgH, 1)
+
+      const fW = imgW * scale
+      const fH = imgH * scale
+      const posX = margin + (availW - fW) / 2
+      const posY = diagTitleY + 15
+
+      // Si el diagrama cabe en la primera página:
+      if (fH <= availH) {
+        pdf.addImage(dataUrl, 'PNG', posX, posY, fW, fH, undefined, 'FAST')
+      } else {
+        // Si el diagrama es muy extenso, lo colocamos en la página 2 con mayor tamaño
+        pdf.setFont('helvetica', 'italic')
+        pdf.setFontSize(8.5)
+        pdf.setTextColor(120, 120, 120)
+        pdf.text('El diagrama detallado se muestra en la siguiente página en alta resolución.', margin, diagTitleY + 25)
+
+        pdf.addPage('a4', imgW > imgH ? 'landscape' : 'portrait')
+        const p2W = imgW > imgH ? 841.89 : 595.28
+        const p2H = imgW > imgH ? 595.28 : 841.89
+        const p2AvailW = p2W - margin * 2
+        const p2AvailH = p2H - margin * 2 - 25
+
+        const scale2 = Math.min(p2AvailW / imgW, p2AvailH / imgH, 1)
+        const fW2 = imgW * scale2
+        const fH2 = imgH * scale2
+        const posX2 = margin + (p2AvailW - fW2) / 2
+        const posY2 = margin + 15
+
+        pdf.addImage(dataUrl, 'PNG', posX2, posY2, fW2, fH2, undefined, 'FAST')
+      }
+
+      // Pie de página en todas las páginas
+      const totalPages = pdf.internal.getNumberOfPages()
+      for (let i = 1; i <= totalPages; i++) {
+        pdf.setPage(i)
+        pdf.setFontSize(7.5)
+        pdf.setTextColor(150, 150, 150)
+        pdf.setFont('helvetica', 'normal')
+        pdf.text(
+          `AEC IVRS — Dalton IVR Manager • Confidencial • Página ${i} de ${totalPages}`,
+          pageW / 2,
+          pageH - 14,
+          { align: 'center' }
+        )
+      }
+
+      const safeName = (agency?.name || agencyName || 'agencia').replace(/\s+/g, '_')
+      pdf.save(`ficha_tecnica_${safeName}.pdf`)
+    } catch (err) {
+      console.error(err)
+      alert('Error al generar la ficha técnica en PDF.')
+    } finally {
+      setExportingPdf(false)
+    }
+  }
+
   if (!ivr?.length) return null
 
   return (
     <Box sx={{ mt: 3 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'wrap' }}>
         <AccountTreeIcon color="primary" />
         <Typography variant="subtitle1" fontWeight={600} sx={{ flexGrow: 1 }}>
-          Diagrama IVR
+          Diagrama IVR (Mermaid)
         </Typography>
+
         <ButtonGroup size="small" variant="outlined">
-          <Button startIcon={<ContentCopyIcon />} onClick={handleCopy}>
-            {copied ? '¡Copiado!' : 'Copiar Mermaid'}
-          </Button>
-          <Button startIcon={<DownloadIcon />} onClick={handleDownload}>
-            Descargar .md
-          </Button>
+          <Tooltip title="Copiar código fuente Mermaid">
+            <Button startIcon={<ContentCopyIcon />} onClick={handleCopy}>
+              {copied ? '¡Copiado!' : 'Copiar Mermaid'}
+            </Button>
+          </Tooltip>
+          <Tooltip title="Descargar código Mermaid como archivo .md">
+            <Button startIcon={<DownloadIcon />} onClick={handleDownloadMd}>
+              Descargar .md
+            </Button>
+          </Tooltip>
+          <Tooltip title="Exportar diagrama Mermaid como imagen PNG">
+            <span>
+              <Button
+                startIcon={exportingPng ? <CircularProgress size={14} /> : <ImageIcon />}
+                onClick={handleExportPng}
+                disabled={exportingPng || exportingPdf}
+              >
+                PNG
+              </Button>
+            </span>
+          </Tooltip>
+          <Tooltip title="Exportar Ficha Técnica en PDF con datos completos de la agencia y diagrama">
+            <span>
+              <Button
+                variant="contained"
+                startIcon={exportingPdf ? <CircularProgress size={14} color="inherit" /> : <PictureAsPdfIcon />}
+                onClick={handleExportPdf}
+                disabled={exportingPng || exportingPdf}
+                sx={{ bgcolor: 'secondary.main', color: '#fff', '&:hover': { bgcolor: '#000' } }}
+              >
+                Ficha PDF
+              </Button>
+            </span>
+          </Tooltip>
         </ButtonGroup>
       </Box>
       <Divider sx={{ mb: 2 }} />
 
-      {error
-        ? <Alert severity="warning">{error}</Alert>
-        : (
-          <Box
-            ref={containerRef}
-            sx={{
-              border: '1px solid',
-              borderColor: 'divider',
-              borderRadius: 2,
-              p: 2,
-              bgcolor: 'background.paper',
-              overflowX: 'auto',
-              '& svg': { maxWidth: '100%', height: 'auto' },
-            }}
-          />
-        )
-      }
+      {error ? (
+        <Alert severity="warning">{error}</Alert>
+      ) : (
+        <Box
+          ref={containerRef}
+          sx={{
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 2,
+            p: 2,
+            bgcolor: 'background.paper',
+            overflowX: 'auto',
+            '& svg': { maxWidth: '100%', height: 'auto', display: 'block' },
+          }}
+        />
+      )}
     </Box>
   )
 }

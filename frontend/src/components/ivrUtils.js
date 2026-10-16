@@ -118,7 +118,7 @@ export function makeNode(type) {
     case 'timeout':     return { ...base, label: 'Sin dígito' }
     case 'ring_group':  return { ...base, extensions: [], rings: 3 }
     case 'ring_single': return { ...base, extension: '', rings: 5 }
-    case 'voicemail':   return { ...base }
+    case 'voicemail':   return { ...base, email: '' }
     case 'cadd':        return { ...base, destination: '' }
     default:            return base
   }
