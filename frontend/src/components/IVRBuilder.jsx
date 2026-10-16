@@ -26,7 +26,7 @@ const NODE_MENU = [
   { type: 'cadd',        label: 'CADD' },
 ]
 
-function FlowCanvas({ ivr, agencyName, onSave }) {
+function FlowCanvas({ ivr, agencyName, onSave, flowExportRef }) {
   const [nodes, setNodes, onNodesChange] = useNodesState([])
   const [edges, setEdges, onEdgesChange] = useEdgesState([])
   const [selected, setSelected] = useState(null)
@@ -36,9 +36,15 @@ function FlowCanvas({ ivr, agencyName, onSave }) {
   const canvasContainerRef = useRef(null)
   const lastSavedTreeJsonRef = useRef(null)
 
-  const { exportPNG, exportPDF, exporting } = useExportDiagram(
+  const { exportPNG, exportPDF, exporting, capture } = useExportDiagram(
     canvasContainerRef, agencyName, getNodes
   )
+
+  useEffect(() => {
+    if (flowExportRef) {
+      flowExportRef.current = { capture }
+    }
+  }, [flowExportRef, capture])
 
   useEffect(() => {
     const ivrJson = JSON.stringify(ivr ?? [])
@@ -180,7 +186,7 @@ function FlowCanvas({ ivr, agencyName, onSave }) {
   )
 }
 
-export default function IVRBuilder({ ivr, agencyName, onSave }) {
+export default function IVRBuilder({ ivr, agencyName, onSave, flowExportRef }) {
   return (
     <Box sx={{ mt: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
@@ -189,7 +195,7 @@ export default function IVRBuilder({ ivr, agencyName, onSave }) {
       </Box>
       <Divider sx={{ mb: 1 }} />
       <ReactFlowProvider>
-        <FlowCanvas ivr={ivr} agencyName={agencyName} onSave={onSave} />
+        <FlowCanvas ivr={ivr} agencyName={agencyName} onSave={onSave} flowExportRef={flowExportRef} />
       </ReactFlowProvider>
     </Box>
   )
