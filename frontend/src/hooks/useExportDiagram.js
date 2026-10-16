@@ -152,5 +152,5 @@ export function useExportDiagram(containerRef, agencyName, getNodes) {
     }
   }, [capture, agencyName])
 
-  return { exportPNG, exportPDF, exporting }
+  return { exportPNG, exportPDF, exporting, capture }
 }

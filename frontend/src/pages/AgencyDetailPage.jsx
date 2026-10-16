@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Alert, Box, CircularProgress } from '@mui/material'
 import AgencyForm from '../components/AgencyForm'
@@ -15,6 +15,7 @@ export default function AgencyDetailPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  const flowExportRef = useRef(null)
 
   useEffect(() => {
     if (isNew) { setInitial(null); setLoading(false); return }
@@ -57,8 +58,8 @@ export default function AgencyDetailPage() {
   return (
     <Box>
       <AgencyForm initial={initial} onSubmit={handleSubmit} loading={saving} />
-      {!isNew && <IVRBuilder ivr={initial?.ivr} agencyName={initial?.name} onSave={handleSaveIVR} />}
-      {!isNew && <IVRDiagram ivr={initial?.ivr} agencyName={initial?.name} agency={initial} />}
+      {!isNew && <IVRBuilder ivr={initial?.ivr} agencyName={initial?.name} onSave={handleSaveIVR} flowExportRef={flowExportRef} />}
+      {!isNew && <IVRDiagram ivr={initial?.ivr} agencyName={initial?.name} agency={initial} flowExportRef={flowExportRef} />}
     </Box>
   )
 }

@@ -88,7 +88,7 @@ async function captureMermaid(containerEl) {
   })
 }
 
-export default function IVRDiagram({ ivr, agencyName, agency }) {
+export default function IVRDiagram({ ivr, agencyName, agency, flowExportRef }) {
   const containerRef = useRef(null)
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState(null)
@@ -144,12 +144,24 @@ export default function IVRDiagram({ ivr, agencyName, agency }) {
     }
   }
 
-  // Exportar PDF completo con ficha técnica de la agencia + diagrama
+  // Exportar PDF completo con ficha técnica de la agencia + AMBOS diagramas (ReactFlow + Mermaid)
   const handleExportPdf = async () => {
     if (!containerRef.current) return
     setExportingPdf(true)
     try {
-      const { dataUrl, width: imgW, height: imgH } = await captureMermaid(containerRef.current)
+      // 1. Capturar diagrama interactivo de React Flow si está disponible
+      let flowCapture = null
+      if (flowExportRef?.current?.capture) {
+        try {
+          flowCapture = await flowExportRef.current.capture()
+        } catch (err) {
+          console.warn('No se pudo capturar diagrama de React Flow:', err)
+        }
+      }
+
+      // 2. Capturar diagrama Mermaid
+      const { dataUrl: mermaidDataUrl, width: mermaidW, height: mermaidH } =
+        await captureMermaid(containerRef.current)
 
       // Dimensiones A4 vertical (portrait): 595.28 x 841.89 pt
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
@@ -157,7 +169,7 @@ export default function IVRDiagram({ ivr, agencyName, agency }) {
       const pageH = 841.89
       const margin = 32
 
-      // 1. Encabezado Dalton (Banner rojo)
+      // ── PÁGINA 1: Encabezado Dalton y Datos Generales ──
       pdf.setFillColor(200, 16, 46) // Rojo Dalton #C8102E
       pdf.rect(0, 0, pageW, 60, 'F')
 
@@ -168,9 +180,9 @@ export default function IVRDiagram({ ivr, agencyName, agency }) {
 
       pdf.setFont('helvetica', 'normal')
       pdf.setFontSize(9.5)
-      pdf.text('Ficha Técnica de Agencia y Flujo IVR (Avaya Enterprise Cloud)', margin, 45)
+      pdf.text('Ficha Técnica de Agencia y Flujos IVR (Avaya Enterprise Cloud)', margin, 45)
 
-      // 2. Ficha de Datos Generales de la Agencia
+      // Tarjeta de Datos Generales de la Agencia
       const cardY = 75
       const cardW = pageW - margin * 2
       const cardH = 105
@@ -190,7 +202,6 @@ export default function IVRDiagram({ ivr, agencyName, agency }) {
       pdf.setLineWidth(1)
       pdf.line(margin + 12, cardY + 22, margin + 200, cardY + 22)
 
-      // Columna Izquierda (x = margin + 12)
       const col1X = margin + 12
       const row1Y = cardY + 38
       const lineH = 15
@@ -212,9 +223,14 @@ export default function IVRDiagram({ ivr, agencyName, agency }) {
       drawField('Agencia: ', agency?.name || agencyName || 'N/A', col1X, row1Y, 230)
       drawField('Abreviatura: ', agency?.abbreviation || 'N/A', col1X, row1Y + lineH, 230)
       drawField('Región: ', agency?.region || 'N/A', col1X, row1Y + lineH * 2, 230)
-      drawField('Emisión: ', new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' }), col1X, row1Y + lineH * 3, 230)
+      drawField(
+        'Emisión: ',
+        new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' }),
+        col1X,
+        row1Y + lineH * 3,
+        230
+      )
 
-      // Columna Derecha (x = margin + 250)
       const col2X = margin + 250
       const hoursText = agency?.has_schedule
         ? (agency?.business_hours || 'Configurado')
@@ -225,63 +241,89 @@ export default function IVRDiagram({ ivr, agencyName, agency }) {
       drawField('Buzón fuera horario: ', mailboxText, col2X, row1Y + lineH, 250)
       drawField('Rangos telefónicos: ', agency?.phone_ranges || 'No especificado', col2X, row1Y + lineH * 2, 250)
 
-      // 3. Sección del Diagrama de Flujo IVR (Mermaid)
-      const diagTitleY = cardY + cardH + 20
-      pdf.setTextColor(26, 26, 26)
-      pdf.setFont('helvetica', 'bold')
-      pdf.setFontSize(10.5)
-      pdf.text('ESTRUCTURA DEL FLUJO IVR (DIAGRAMA MERMAID)', margin, diagTitleY)
+      // ── DIAGRAMA 1: React Flow (Página 1) ──
+      if (flowCapture?.dataUrl) {
+        const diag1TitleY = cardY + cardH + 18
+        pdf.setTextColor(26, 26, 26)
+        pdf.setFont('helvetica', 'bold')
+        pdf.setFontSize(10.5)
+        pdf.text('1. DIAGRAMA DE NODOS (REACT FLOW)', margin, diag1TitleY)
 
-      pdf.setDrawColor(226, 232, 240)
-      pdf.setLineWidth(0.8)
-      pdf.line(margin, diagTitleY + 5, pageW - margin, diagTitleY + 5)
+        pdf.setDrawColor(226, 232, 240)
+        pdf.setLineWidth(0.8)
+        pdf.line(margin, diag1TitleY + 5, pageW - margin, diag1TitleY + 5)
 
-      // Cálculo de dimensiones e inserción de imagen
-      const availW = pageW - margin * 2
-      const availH = pageH - (diagTitleY + 15) - 35 // espacio restante antes del pie de página
-      const scale = Math.min(availW / imgW, availH / imgH, 1)
+        const availW1 = pageW - margin * 2
+        const availH1 = pageH - (diag1TitleY + 15) - 35 // espacio restante antes del footer
+        const scale1 = Math.min(availW1 / flowCapture.imgW, availH1 / flowCapture.imgH, 1)
 
-      const fW = imgW * scale
-      const fH = imgH * scale
-      const posX = margin + (availW - fW) / 2
-      const posY = diagTitleY + 15
+        const fW1 = flowCapture.imgW * scale1
+        const fH1 = flowCapture.imgH * scale1
+        const posX1 = margin + (availW1 - fW1) / 2
+        const posY1 = diag1TitleY + 15
 
-      // Si el diagrama cabe en la primera página:
-      if (fH <= availH) {
-        pdf.addImage(dataUrl, 'PNG', posX, posY, fW, fH, undefined, 'FAST')
+        pdf.addImage(flowCapture.dataUrl, 'PNG', posX1, posY1, fW1, fH1, undefined, 'FAST')
+
+        // ── PÁGINA 2: Diagrama de Flujo Lógico (Mermaid) ──
+        const isMermaidWide = mermaidW > mermaidH * 1.25
+        pdf.addPage('a4', isMermaidWide ? 'landscape' : 'portrait')
+        const p2W = isMermaidWide ? 841.89 : 595.28
+        const p2H = isMermaidWide ? 595.28 : 841.89
+
+        // Banner superior página 2
+        pdf.setFillColor(200, 16, 46)
+        pdf.rect(0, 0, p2W, 40, 'F')
+        pdf.setTextColor(255, 255, 255)
+        pdf.setFont('helvetica', 'bold')
+        pdf.setFontSize(12)
+        pdf.text('2. AEC IVRS — DIAGRAMA DE FLUJO LÓGICO (MERMAID)', margin, 24)
+
+        const availW2 = p2W - margin * 2
+        const availH2 = p2H - 55 - 35
+        const scale2 = Math.min(availW2 / mermaidW, availH2 / mermaidH, 1)
+        const fW2 = mermaidW * scale2
+        const fH2 = mermaidH * scale2
+        const posX2 = margin + (availW2 - fW2) / 2
+        const posY2 = 55 + (availH2 - fH2) / 2
+
+        pdf.addImage(mermaidDataUrl, 'PNG', posX2, posY2, fW2, fH2, undefined, 'FAST')
       } else {
-        // Si el diagrama es muy extenso, lo colocamos en la página 2 con mayor tamaño
-        pdf.setFont('helvetica', 'italic')
-        pdf.setFontSize(8.5)
-        pdf.setTextColor(120, 120, 120)
-        pdf.text('El diagrama detallado se muestra en la siguiente página en alta resolución.', margin, diagTitleY + 25)
+        // Fallback: solo diagrama Mermaid en Página 1
+        const diagTitleY = cardY + cardH + 20
+        pdf.setTextColor(26, 26, 26)
+        pdf.setFont('helvetica', 'bold')
+        pdf.setFontSize(10.5)
+        pdf.text('ESTRUCTURA DEL FLUJO IVR (DIAGRAMA MERMAID)', margin, diagTitleY)
 
-        pdf.addPage('a4', imgW > imgH ? 'landscape' : 'portrait')
-        const p2W = imgW > imgH ? 841.89 : 595.28
-        const p2H = imgW > imgH ? 595.28 : 841.89
-        const p2AvailW = p2W - margin * 2
-        const p2AvailH = p2H - margin * 2 - 25
+        pdf.setDrawColor(226, 232, 240)
+        pdf.setLineWidth(0.8)
+        pdf.line(margin, diagTitleY + 5, pageW - margin, diagTitleY + 5)
 
-        const scale2 = Math.min(p2AvailW / imgW, p2AvailH / imgH, 1)
-        const fW2 = imgW * scale2
-        const fH2 = imgH * scale2
-        const posX2 = margin + (p2AvailW - fW2) / 2
-        const posY2 = margin + 15
+        const availW = pageW - margin * 2
+        const availH = pageH - (diagTitleY + 15) - 35
+        const scale = Math.min(availW / mermaidW, availH / mermaidH, 1)
 
-        pdf.addImage(dataUrl, 'PNG', posX2, posY2, fW2, fH2, undefined, 'FAST')
+        const fW = mermaidW * scale
+        const fH = mermaidH * scale
+        const posX = margin + (availW - fW) / 2
+        const posY = diagTitleY + 15
+
+        pdf.addImage(mermaidDataUrl, 'PNG', posX, posY, fW, fH, undefined, 'FAST')
       }
 
-      // Pie de página en todas las páginas
+      // Numeración de páginas y membrete confidencial en todas las páginas
       const totalPages = pdf.internal.getNumberOfPages()
       for (let i = 1; i <= totalPages; i++) {
         pdf.setPage(i)
+        const curW = pdf.internal.pageSize.getWidth()
+        const curH = pdf.internal.pageSize.getHeight()
         pdf.setFontSize(7.5)
         pdf.setTextColor(150, 150, 150)
         pdf.setFont('helvetica', 'normal')
         pdf.text(
-          `AEC IVRS — Dalton IVR Manager • Confidencial • Página ${i} de ${totalPages}`,
-          pageW / 2,
-          pageH - 14,
+          `AEC IVRS — Dalton IVR Manager • Documento Confidencial • Página ${i} de ${totalPages}`,
+          curW / 2,
+          curH - 14,
           { align: 'center' }
         )
       }
