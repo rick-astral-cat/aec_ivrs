@@ -1,9 +1,7 @@
-import axios from 'axios'
+import client from './client'
 
-const api = axios.create({ baseURL: 'http://localhost:8000' })
-
-export const getAgencies = () => api.get('/agencies')
-export const getAgency = (id) => api.get(`/agencies/${id}`)
-export const createAgency = (data) => api.post('/agencies', data)
-export const updateAgency = (id, data) => api.put(`/agencies/${id}`, data)
-export const deleteAgency = (id) => api.delete(`/agencies/${id}`)
+export const getAgencies = () => client.get('/agencies')
+export const getAgency = (id) => client.get(`/agencies/${id}`)
+export const createAgency = (data) => client.post('/agencies', data)
+export const updateAgency = (id, data) => client.put(`/agencies/${id}`, data)
+export const deleteAgency = (id) => client.delete(`/agencies/${id}`)

@@ -2,6 +2,17 @@ from sqlalchemy import Column, Integer, String, Boolean, JSON
 from database import Base
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    totp_secret = Column(String, nullable=True)          # Secreto base32 para TOTP (Google Auth)
+    is_mfa_enabled = Column(Boolean, default=False)      # True una vez confirmado el primer código QR
+    is_active = Column(Boolean, default=True)
+
+
 class Agency(Base):
     __tablename__ = "agencies"
 
