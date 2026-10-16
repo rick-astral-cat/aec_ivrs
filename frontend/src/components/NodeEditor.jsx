@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import {
   Box, Button, Divider, Drawer, IconButton, MenuItem,
   TextField, Typography,
@@ -15,6 +16,17 @@ const NODE_TYPES = [
 ]
 
 export default function NodeEditor({ node, onChange, onDelete, onClose }) {
+  // Extensiones como texto libre: permite escribir comas sin que el split
+  // inmediato las elimine. Se convierte a array solo en onBlur.
+  // Los hooks van antes de cualquier return condicional.
+  const [extText, setExtText] = useState('')
+
+  useEffect(() => {
+    if (!node) return
+    const ext = node.data.extensions
+    setExtText(Array.isArray(ext) ? ext.join(', ') : (ext ?? ''))
+  }, [node?.id])
+
   if (!node) return null
   const d = node.data
   const set = (field) => (e) => onChange({ ...d, [field]: e.target.value })
@@ -52,9 +64,15 @@ export default function NodeEditor({ node, onChange, onDelete, onClose }) {
         <>
           <TextField
             label="Extensiones (separadas por coma)"
-            value={Array.isArray(d.extensions) ? d.extensions.join(', ') : (d.extensions ?? '')}
-            onChange={e => onChange({ ...d, extensions: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
-            size="small" fullWidth sx={{ mb: 2 }} />
+            value={extText}
+            onChange={e => setExtText(e.target.value)}
+            onBlur={() => {
+              const arr = extText.split(',').map(s => s.trim()).filter(Boolean)
+              onChange({ ...d, extensions: arr })
+              setExtText(arr.join(', '))
+            }}
+            size="small" fullWidth sx={{ mb: 2 }}
+            helperText="Ej: 1001, 1002, 1003" />
           <TextField label="Timbrados (0 = indefinido)" value={d.rings ?? 3}
             onChange={e => onChange({ ...d, rings: Number(e.target.value) })}
             type="number" size="small" fullWidth sx={{ mb: 2 }}
