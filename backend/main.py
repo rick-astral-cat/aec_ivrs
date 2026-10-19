@@ -1,6 +1,6 @@
 import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, APIRouter, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
@@ -60,9 +60,15 @@ app.add_middleware(
 )
 
 
+# Todas las rutas del API viven bajo /api para no colisionar con las rutas del
+# SPA (React Router). Así nginx puede servir index.html en /agencies/{id} y
+# enrutar las peticiones de datos a /api/agencies/{id}.
+api = APIRouter(prefix="/api")
+
+
 # ── Rutas de Autenticación y MFA ──
 
-@app.post("/auth/login", response_model=schemas.LoginResponse)
+@api.post("/auth/login", response_model=schemas.LoginResponse)
 def login(payload: schemas.LoginRequest, db: Session = Depends(get_db)):
     """Paso 1 del Login: valida usuario y contraseña.
     Si el usuario aún no tiene MFA configurado, genera un secreto y el QR para enrolamiento.
@@ -106,7 +112,7 @@ def login(payload: schemas.LoginRequest, db: Session = Depends(get_db)):
     )
 
 
-@app.post("/auth/mfa/setup-verify", response_model=schemas.TokenResponse)
+@api.post("/auth/mfa/setup-verify", response_model=schemas.TokenResponse)
 def verify_mfa_setup(payload: schemas.MFAVerifySetupRequest, db: Session = Depends(get_db)):
     """Paso 2 (Primer Login): verifica el código de 6 dígitos del QR escaneado.
     Si es válido, guarda el secreto en base de datos, marca MFA como activo y entrega el JWT de acceso.
@@ -145,7 +151,7 @@ def verify_mfa_setup(payload: schemas.MFAVerifySetupRequest, db: Session = Depen
     )
 
 
-@app.post("/auth/mfa/login-verify", response_model=schemas.TokenResponse)
+@api.post("/auth/mfa/login-verify", response_model=schemas.TokenResponse)
 def verify_mfa_login(payload: schemas.MFAVerifyLoginRequest, db: Session = Depends(get_db)):
     """Paso 2 (Logins posteriores): valida el código TOTP de 6 dígitos contra el secreto del usuario."""
     token_data = auth.decode_token(payload.challenge_token)
@@ -175,13 +181,13 @@ def verify_mfa_login(payload: schemas.MFAVerifyLoginRequest, db: Session = Depen
     )
 
 
-@app.get("/auth/me", response_model=schemas.UserOut)
+@api.get("/auth/me", response_model=schemas.UserOut)
 def get_current_authenticated_user(current_user: models.User = Depends(auth.get_current_user)):
     """Devuelve la información del usuario en sesión."""
     return current_user
 
 
-@app.post("/auth/mfa/reconfigure-init", response_model=schemas.LoginResponse)
+@api.post("/auth/mfa/reconfigure-init", response_model=schemas.LoginResponse)
 def reconfigure_mfa_init(current_user: models.User = Depends(auth.get_current_user)):
     """Permite a un usuario autenticado solicitar un nuevo QR para cambiar de dispositivo móvil."""
     temp_secret = auth.generate_totp_secret()
@@ -201,17 +207,15 @@ def reconfigure_mfa_init(current_user: models.User = Depends(auth.get_current_us
 
 # ── Rutas CRUD de Agencias (Protegidas con autenticación) ──
 
-@app.get("/agencies", response_model=list[schemas.AgencyOut], dependencies=[Depends(auth.get_current_user)])
+@api.get("/agencies", response_model=list[schemas.AgencyOut], dependencies=[Depends(auth.get_current_user)])
 def list_agencies(db: Session = Depends(get_db)):
     return db.query(models.Agency).all()
 
 
-@app.post(
-    "/agencies",
-    response_model=schemas.AgencyOut,
-    status_code=201,
-    dependencies=[Depends(auth.get_current_user)],
-)
+@api.post("/agencies",
+response_model=schemas.AgencyOut,
+status_code=201,
+dependencies=[Depends(auth.get_current_user)],)
 def create_agency(payload: schemas.AgencyCreate, db: Session = Depends(get_db)):
     agency = models.Agency(**payload.model_dump())
     db.add(agency)
@@ -220,7 +224,7 @@ def create_agency(payload: schemas.AgencyCreate, db: Session = Depends(get_db)):
     return agency
 
 
-@app.get("/agencies/{agency_id}", response_model=schemas.AgencyOut, dependencies=[Depends(auth.get_current_user)])
+@api.get("/agencies/{agency_id}", response_model=schemas.AgencyOut, dependencies=[Depends(auth.get_current_user)])
 def get_agency(agency_id: int, db: Session = Depends(get_db)):
     agency = db.get(models.Agency, agency_id)
     if not agency:
@@ -228,7 +232,7 @@ def get_agency(agency_id: int, db: Session = Depends(get_db)):
     return agency
 
 
-@app.put("/agencies/{agency_id}", response_model=schemas.AgencyOut, dependencies=[Depends(auth.get_current_user)])
+@api.put("/agencies/{agency_id}", response_model=schemas.AgencyOut, dependencies=[Depends(auth.get_current_user)])
 def update_agency(agency_id: int, payload: schemas.AgencyUpdate, db: Session = Depends(get_db)):
     agency = db.get(models.Agency, agency_id)
     if not agency:
@@ -240,10 +244,14 @@ def update_agency(agency_id: int, payload: schemas.AgencyUpdate, db: Session = D
     return agency
 
 
-@app.delete("/agencies/{agency_id}", status_code=204, dependencies=[Depends(auth.get_current_user)])
+@api.delete("/agencies/{agency_id}", status_code=204, dependencies=[Depends(auth.get_current_user)])
 def delete_agency(agency_id: int, db: Session = Depends(get_db)):
     agency = db.get(models.Agency, agency_id)
     if not agency:
         raise HTTPException(status_code=404, detail="Agency not found")
     db.delete(agency)
     db.commit()
+
+
+# Registrar todas las rutas del API bajo el prefijo /api
+app.include_router(api)
