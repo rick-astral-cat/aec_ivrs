@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Accordion, AccordionSummary, AccordionDetails,
-  Box, Button, Chip, Divider, FormControlLabel, Grid, IconButton,
+  Box, Button, Checkbox, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
+  Divider, FormControlLabel, FormGroup, Grid, IconButton,
   Paper, Stack, Switch, TextField, Typography,
 } from '@mui/material'
 import SaveIcon from '@mui/icons-material/Save'
@@ -10,6 +11,7 @@ import CheckIcon from '@mui/icons-material/Check'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import AddIcon from '@mui/icons-material/Add'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutlineOutlined'
 import { DAYS, emptySchedule, parseSchedule, serializeSchedule } from './scheduleUtils'
 
@@ -89,6 +91,37 @@ export default function AgencyForm({ initial, onSubmit, loading }) {
         i === idx ? (pos === 'start' ? [e.target.value, seg[1]] : [seg[0], e.target.value]) : seg
       ),
     }))
+
+  // ── Copiar horario de un día a otros días (estilo alarma) ──
+  // copyDialog guarda el día origen; targetDays los días destino marcados.
+  const [copyDialog, setCopyDialog] = useState({ open: false, sourceDay: null })
+  const [targetDays, setTargetDays] = useState([])
+
+  const openCopyDialog = (sourceDay) => {
+    setCopyDialog({ open: true, sourceDay })
+    setTargetDays([])  // sin selección previa
+  }
+
+  const closeCopyDialog = () => setCopyDialog({ open: false, sourceDay: null })
+
+  const toggleTargetDay = (dayKey) =>
+    setTargetDays(prev =>
+      prev.includes(dayKey) ? prev.filter(d => d !== dayKey) : [...prev, dayKey]
+    )
+
+  const applyCopy = () => {
+    const { sourceDay } = copyDialog
+    setSchedule(s => {
+      // Clonar los segmentos del día origen hacia cada día destino
+      const sourceSegs = s[sourceDay] ?? []
+      const next = { ...s }
+      targetDays.forEach(day => {
+        next[day] = sourceSegs.map(([start, end]) => [start, end])
+      })
+      return next
+    })
+    closeCopyDialog()
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -269,11 +302,17 @@ export default function AgencyForm({ initial, onSubmit, loading }) {
                               </Grid>
                             </Grid>
                           ))}
-                          <Box>
+                          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                             <Button size="small" startIcon={<AddIcon />}
                               onClick={() => addSegment(key)}>
                               Agregar segmento
                             </Button>
+                            {segs.length > 0 && (
+                              <Button size="small" color="secondary" startIcon={<ContentCopyIcon />}
+                                onClick={() => openCopyDialog(key)}>
+                                Copiar a otros días
+                              </Button>
+                            )}
                           </Box>
                         </Stack>
                       </AccordionDetails>
@@ -294,6 +333,63 @@ export default function AgencyForm({ initial, onSubmit, loading }) {
           )}
         </Grid>
       </Paper>
+
+      {/* ── Diálogo: copiar horario del día origen a otros días ── */}
+      <Dialog open={copyDialog.open} onClose={closeCopyDialog} maxWidth="xs" fullWidth>
+        <DialogTitle>
+          Copiar horario de {DAYS.find(d => d.key === copyDialog.sourceDay)?.label ?? ''}
+        </DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="caption" color="text.secondary">
+            Selecciona a qué días aplicar el mismo horario. Reemplazará lo que tengan configurado.
+          </Typography>
+
+          {/* Atajos rápidos */}
+          <Box sx={{ display: 'flex', gap: 1, mt: 1.5, mb: 1, flexWrap: 'wrap' }}>
+            <Button size="small" variant="outlined"
+              onClick={() => setTargetDays(
+                ['L', 'M', 'X', 'J', 'V'].filter(k => k !== copyDialog.sourceDay)
+              )}>
+              Entre semana (L–V)
+            </Button>
+            <Button size="small" variant="outlined"
+              onClick={() => setTargetDays(['S', 'D'].filter(k => k !== copyDialog.sourceDay))}>
+              Fin de semana (S–D)
+            </Button>
+            <Button size="small" variant="outlined"
+              onClick={() => setTargetDays(DAYS.map(d => d.key).filter(k => k !== copyDialog.sourceDay))}>
+              Todos
+            </Button>
+          </Box>
+
+          <FormGroup>
+            {DAYS.filter(d => d.key !== copyDialog.sourceDay).map(({ key, label }) => (
+              <FormControlLabel
+                key={key}
+                control={
+                  <Checkbox
+                    checked={targetDays.includes(key)}
+                    onChange={() => toggleTargetDay(key)}
+                    size="small"
+                  />
+                }
+                label={label}
+              />
+            ))}
+          </FormGroup>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeCopyDialog}>Cancelar</Button>
+          <Button
+            variant="contained"
+            onClick={applyCopy}
+            disabled={targetDays.length === 0}
+            startIcon={<ContentCopyIcon />}
+          >
+            Aplicar a {targetDays.length} día{targetDays.length !== 1 ? 's' : ''}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }
