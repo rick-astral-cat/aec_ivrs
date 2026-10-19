@@ -9,6 +9,7 @@ import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import { getAgencies, deleteAgency, createAgency } from '../api/agencies'
+import { summarizeSchedule } from '../components/scheduleUtils'
 
 export default function AgenciesPage() {
   const [agencies, setAgencies] = useState([])
@@ -72,7 +73,20 @@ export default function AgenciesPage() {
                 <TableCell>{a.region}</TableCell>
                 <TableCell>
                   {a.has_schedule
-                    ? <Chip label={a.business_hours} size="small" color="success" variant="outlined" />
+                    ? (() => {
+                        const summary = summarizeSchedule(a.business_hours)
+                        if (!summary) {
+                          return <Chip label="Horario incompleto" size="small" color="warning" variant="outlined" />
+                        }
+                        // Cada grupo "L–V 08:00-14:00, 16:00-19:00" separado por " · "
+                        return (
+                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, maxWidth: 320 }}>
+                            {summary.split(' · ').map((part, i) => (
+                              <Chip key={i} label={part} size="small" color="success" variant="outlined" />
+                            ))}
+                          </Box>
+                        )
+                      })()
                     : <Chip label="Sin horario" size="small" variant="outlined" />}
                 </TableCell>
                 <TableCell>

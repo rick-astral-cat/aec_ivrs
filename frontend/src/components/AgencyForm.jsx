@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Box, Button, Divider, FormControlLabel, Grid, IconButton,
-  Paper, Switch, TextField, Typography,
+  Accordion, AccordionSummary, AccordionDetails,
+  Box, Button, Chip, Divider, FormControlLabel, Grid, IconButton,
+  Paper, Stack, Switch, TextField, Typography,
 } from '@mui/material'
 import SaveIcon from '@mui/icons-material/Save'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import AddIcon from '@mui/icons-material/Add'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutlineOutlined'
+import { DAYS, emptySchedule, parseSchedule, serializeSchedule } from './scheduleUtils'
 
 const EMPTY_RANGE = { from: '', to: '' }
-const EMPTY_HOURS = { start: '', end: '' }
 
 const EMPTY = {
   name: '',
@@ -29,29 +31,20 @@ const parseRanges = (str) => {
   })
 }
 
-// Parsea "07:00-19:00" → { start, end }
-const parseHours = (str) => {
-  if (!str) return { ...EMPTY_HOURS }
-  const [start = '', end = ''] = str.split('-')
-  return { start: start.trim(), end: end.trim() }
-}
-
 const serializeRanges = (ranges) =>
   ranges.filter(r => r.from || r.to).map(r => `${r.from}-${r.to}`).join(' | ')
-
-const serializeHours = (h) => (h.start || h.end) ? `${h.start}-${h.end}` : ''
 
 export default function AgencyForm({ initial, onSubmit, loading }) {
   const [form, setForm] = useState(EMPTY)
   const [ranges, setRanges] = useState([{ ...EMPTY_RANGE }])
-  const [hours, setHours] = useState({ ...EMPTY_HOURS })
+  const [schedule, setSchedule] = useState(emptySchedule())
   const navigate = useNavigate()
 
   useEffect(() => {
     const base = { ...EMPTY, ...initial }
     setForm(base)
     setRanges(parseRanges(initial?.phone_ranges))
-    setHours(parseHours(initial?.business_hours))
+    setSchedule(parseSchedule(initial?.business_hours))
   }, [initial])
 
   const set = (field) => (e) =>
@@ -63,12 +56,27 @@ export default function AgencyForm({ initial, onSubmit, loading }) {
   const addRange = () => setRanges(rs => [...rs, { ...EMPTY_RANGE }])
   const removeRange = (i) => setRanges(rs => rs.filter((_, idx) => idx !== i))
 
+  // ── Manejo de segmentos de horario por día ──
+  const addSegment = (dayKey) =>
+    setSchedule(s => ({ ...s, [dayKey]: [...s[dayKey], ['', '']] }))
+
+  const removeSegment = (dayKey, idx) =>
+    setSchedule(s => ({ ...s, [dayKey]: s[dayKey].filter((_, i) => i !== idx) }))
+
+  const setSegment = (dayKey, idx, pos) => (e) =>
+    setSchedule(s => ({
+      ...s,
+      [dayKey]: s[dayKey].map((seg, i) =>
+        i === idx ? (pos === 'start' ? [e.target.value, seg[1]] : [seg[0], e.target.value]) : seg
+      ),
+    }))
+
   const handleSubmit = (e) => {
     e.preventDefault()
     onSubmit({
       ...form,
       phone_ranges: serializeRanges(ranges),
-      business_hours: serializeHours(hours),
+      business_hours: serializeSchedule(schedule),
     })
   }
 
@@ -171,27 +179,78 @@ export default function AgencyForm({ initial, onSubmit, loading }) {
               label="La agencia tiene horario de atención (fuera de horario activo)"
             />
           </Grid>
+
           {form.has_schedule && (
             <>
-              <Grid size={{ xs: 6, md: 3 }}>
-                <TextField
-                  label="Hora inicio"
-                  type="time" size="small" fullWidth
-                  value={hours.start}
-                  onChange={e => setHours(h => ({ ...h, start: e.target.value }))}
-                  slotProps={{ inputLabel: { shrink: true } }}
-                />
+              <Grid size={{ xs: 12 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Define los segmentos de atención por día. Puedes agregar varios rangos
+                  (ej: mañana y tarde) en cada día. Los días sin segmentos se consideran cerrados.
+                </Typography>
               </Grid>
-              <Grid size={{ xs: 6, md: 3 }}>
-                <TextField
-                  label="Hora fin"
-                  type="time" size="small" fullWidth
-                  value={hours.end}
-                  onChange={e => setHours(h => ({ ...h, end: e.target.value }))}
-                  slotProps={{ inputLabel: { shrink: true } }}
-                />
+
+              <Grid size={{ xs: 12 }}>
+                {DAYS.map(({ key, label }) => {
+                  const segs = schedule[key] ?? []
+                  return (
+                    <Accordion key={key} disableGutters elevation={0}
+                      sx={{ border: '1px solid', borderColor: 'divider', '&:before': { display: 'none' } }}>
+                      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+                          <Typography sx={{ fontWeight: 500, minWidth: 90 }}>{label}</Typography>
+                          {segs.length === 0
+                            ? <Chip label="Cerrado" size="small" variant="outlined" />
+                            : <Chip label={`${segs.length} segmento${segs.length > 1 ? 's' : ''}`}
+                                size="small" color="success" variant="outlined" />}
+                        </Box>
+                      </AccordionSummary>
+                      <AccordionDetails>
+                        <Stack spacing={1.5}>
+                          {segs.length === 0 && (
+                            <Typography variant="caption" color="text.secondary">
+                              Sin horario este día.
+                            </Typography>
+                          )}
+                          {segs.map((seg, idx) => (
+                            <Grid container spacing={1} key={idx} sx={{ alignItems: 'center' }}>
+                              <Grid size={{ xs: 5 }}>
+                                <TextField
+                                  label="Inicio" type="time" size="small" fullWidth
+                                  value={seg[0]}
+                                  onChange={setSegment(key, idx, 'start')}
+                                  slotProps={{ inputLabel: { shrink: true } }}
+                                />
+                              </Grid>
+                              <Grid size={{ xs: 5 }}>
+                                <TextField
+                                  label="Fin" type="time" size="small" fullWidth
+                                  value={seg[1]}
+                                  onChange={setSegment(key, idx, 'end')}
+                                  slotProps={{ inputLabel: { shrink: true } }}
+                                />
+                              </Grid>
+                              <Grid size={{ xs: 2 }} sx={{ display: 'flex', justifyContent: 'center' }}>
+                                <IconButton color="error" size="small"
+                                  onClick={() => removeSegment(key, idx)}>
+                                  <RemoveCircleOutlineIcon />
+                                </IconButton>
+                              </Grid>
+                            </Grid>
+                          ))}
+                          <Box>
+                            <Button size="small" startIcon={<AddIcon />}
+                              onClick={() => addSegment(key)}>
+                              Agregar segmento
+                            </Button>
+                          </Box>
+                        </Stack>
+                      </AccordionDetails>
+                    </Accordion>
+                  )
+                })}
               </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
+
+              <Grid size={{ xs: 12 }} sx={{ mt: 1 }}>
                 <TextField
                   label="Buzón fuera de horario"
                   value={form.after_hours_mailbox} onChange={set('after_hours_mailbox')}
