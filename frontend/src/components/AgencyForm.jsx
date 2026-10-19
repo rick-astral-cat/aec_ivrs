@@ -6,6 +6,7 @@ import {
   Paper, Stack, Switch, TextField, Typography,
 } from '@mui/material'
 import SaveIcon from '@mui/icons-material/Save'
+import CheckIcon from '@mui/icons-material/Check'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import AddIcon from '@mui/icons-material/Add'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
@@ -38,6 +39,7 @@ export default function AgencyForm({ initial, onSubmit, loading }) {
   const [form, setForm] = useState(EMPTY)
   const [ranges, setRanges] = useState([{ ...EMPTY_RANGE }])
   const [schedule, setSchedule] = useState(emptySchedule())
+  const [saveSuccess, setSaveSuccess] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -71,13 +73,18 @@ export default function AgencyForm({ initial, onSubmit, loading }) {
       ),
     }))
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    onSubmit({
+    const ok = await onSubmit({
       ...form,
       phone_ranges: serializeRanges(ranges),
       business_hours: serializeSchedule(schedule),
     })
+    // Mostrar feedback de éxito solo si el guardado fue exitoso
+    if (ok !== false) {
+      setSaveSuccess(true)
+      setTimeout(() => setSaveSuccess(false), 2000)
+    }
   }
 
   return (
@@ -89,8 +96,14 @@ export default function AgencyForm({ initial, onSubmit, loading }) {
         <Typography variant="h5" fontWeight={600} sx={{ flexGrow: 1 }}>
           {form.name || 'Nueva agencia'}
         </Typography>
-        <Button type="submit" variant="contained" startIcon={<SaveIcon />} disabled={loading}>
-          Guardar
+        <Button
+          type="submit"
+          variant="contained"
+          color={saveSuccess ? 'success' : 'primary'}
+          startIcon={saveSuccess ? <CheckIcon /> : <SaveIcon />}
+          disabled={loading}
+        >
+          {saveSuccess ? '¡Guardado!' : 'Guardar'}
         </Button>
       </Box>
 

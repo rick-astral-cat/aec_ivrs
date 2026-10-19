@@ -36,8 +36,10 @@ export default function AgencyDetailPage() {
         const updated = await updateAgency(id, { ...initial, ...form })
         setInitial(updated.data)
       }
+      return true
     } catch {
       setError('Error al guardar. Verifica los datos e intenta de nuevo.')
+      return false
     } finally {
       setSaving(false)
     }
