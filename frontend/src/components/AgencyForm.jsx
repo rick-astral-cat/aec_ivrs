@@ -28,12 +28,26 @@ const parseRanges = (str) => {
   if (!str) return [{ ...EMPTY_RANGE }]
   return str.split('|').map(r => {
     const [from = '', to = ''] = r.trim().split('-')
-    return { from: from.trim(), to: to.trim() }
+    // Normalizar a solo dígitos por si vinieran con separadores
+    return { from: from.replace(/\D/g, ''), to: to.replace(/\D/g, '') }
   })
 }
 
 const serializeRanges = (ranges) =>
   ranges.filter(r => r.from || r.to).map(r => `${r.from}-${r.to}`).join(' | ')
+
+// Deja solo dígitos y recorta a máximo 10 (número telefónico mexicano).
+const onlyDigits = (str) => (str ?? '').replace(/\D/g, '').slice(0, 10)
+
+// Formatea visualmente a "XX-XXXX-XXXX" a partir de dígitos crudos.
+// Se adapta mientras se escribe: "33" → "33", "332834" → "33-2834",
+// "3328341462" → "33-2834-1462". No afecta el dato guardado (siempre dígitos).
+const formatPhone = (digits) => {
+  const d = onlyDigits(digits)
+  if (d.length <= 2) return d
+  if (d.length <= 6) return `${d.slice(0, 2)}-${d.slice(2)}`
+  return `${d.slice(0, 2)}-${d.slice(2, 6)}-${d.slice(6)}`
+}
 
 export default function AgencyForm({ initial, onSubmit, loading }) {
   const [form, setForm] = useState(EMPTY)
@@ -52,8 +66,11 @@ export default function AgencyForm({ initial, onSubmit, loading }) {
   const set = (field) => (e) =>
     setForm(f => ({ ...f, [field]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }))
 
+  // Guarda solo dígitos (sin guiones). El formato visual se aplica al renderizar.
+  // Esto cubre tanto escritura manual como copy/paste: cualquier guion o símbolo
+  // que venga en el texto pegado se elimina automáticamente.
   const setRange = (i, field) => (e) =>
-    setRanges(rs => rs.map((r, idx) => idx === i ? { ...r, [field]: e.target.value } : r))
+    setRanges(rs => rs.map((r, idx) => idx === i ? { ...r, [field]: onlyDigits(e.target.value) } : r))
 
   const addRange = () => setRanges(rs => [...rs, { ...EMPTY_RANGE }])
   const removeRange = (i) => setRanges(rs => rs.filter((_, idx) => idx !== i))
@@ -153,18 +170,20 @@ export default function AgencyForm({ initial, onSubmit, loading }) {
           <Grid container spacing={2} key={i} sx={{ mb: 1, alignItems: 'center' }}>
             <Grid size={{ xs: 12, sm: 5 }}>
               <TextField
-                label="Número inicio (10 dígitos)"
-                value={r.from} onChange={setRange(i, 'from')}
+                label="Número inicio"
+                value={formatPhone(r.from)} onChange={setRange(i, 'from')}
                 fullWidth size="small" required
-                slotProps={{ htmlInput: { maxLength: 10, inputMode: 'numeric' } }}
+                placeholder="33-2834-1462"
+                slotProps={{ htmlInput: { maxLength: 12, inputMode: 'numeric' } }}
               />
             </Grid>
             <Grid size={{ xs: 12, sm: 5 }}>
               <TextField
-                label="Número final (10 dígitos)"
-                value={r.to} onChange={setRange(i, 'to')}
+                label="Número final"
+                value={formatPhone(r.to)} onChange={setRange(i, 'to')}
                 fullWidth size="small" required
-                slotProps={{ htmlInput: { maxLength: 10, inputMode: 'numeric' } }}
+                placeholder="33-2834-1497"
+                slotProps={{ htmlInput: { maxLength: 12, inputMode: 'numeric' } }}
               />
             </Grid>
             <Grid size={{ xs: 12, sm: 2 }} sx={{ display: 'flex', justifyContent: 'center' }}>
