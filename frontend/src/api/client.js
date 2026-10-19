@@ -1,8 +1,15 @@
 import axios from 'axios'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL !== undefined
+// Las rutas del backend viven bajo /api (ver backend/main.py y la config de nginx).
+// En desarrollo apunta a http://localhost:8000/api; en producción usa /api relativo
+// (mismo origen que sirve nginx), permitiendo que el SPA conserve rutas como
+// /agencies/:id sin colisionar con los endpoints del API.
+const RAW_BASE = import.meta.env.VITE_API_URL !== undefined
   ? import.meta.env.VITE_API_URL
   : (import.meta.env.DEV ? 'http://localhost:8000' : '')
+
+// Garantizar el sufijo /api sin duplicarlo si ya viene en VITE_API_URL
+const API_BASE_URL = RAW_BASE.replace(/\/+$/, '') + '/api'
 
 const client = axios.create({
   baseURL: API_BASE_URL,
