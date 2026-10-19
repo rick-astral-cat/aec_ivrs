@@ -118,3 +118,49 @@ export function summarizeSchedule(value) {
 
   return parts.join(' · ')
 }
+
+
+// Nombres abreviados legibles para documentos (PDF).
+const DAY_SHORT = {
+  L: 'Lun', M: 'Mar', X: 'Mié', J: 'Jue', V: 'Vie', S: 'Sáb', D: 'Dom',
+}
+
+/**
+ * Devuelve el horario como un arreglo de líneas legibles para usuario final,
+ * una por cada grupo de días contiguos con el mismo horario.
+ * Ej: ["Lun–Vie: 08:00-14:00, 16:00-19:00", "Sáb: 09:00-13:00"]
+ *
+ * Pensado para el PDF (ficha técnica), donde el JSON crudo es ilegible.
+ */
+export function scheduleToLines(value) {
+  const schedule = parseSchedule(value)
+  const lines = []
+
+  let i = 0
+  while (i < DAYS.length) {
+    const { key } = DAYS[i]
+    const segs = schedule[key]
+    if (!segs || segs.length === 0) { i++; continue }
+
+    const segStr = segs.map(([s, e]) => `${s}-${e}`).join(', ')
+
+    // Agrupar días contiguos con el mismo horario
+    let j = i
+    while (
+      j + 1 < DAYS.length &&
+      schedule[DAYS[j + 1].key]?.length &&
+      schedule[DAYS[j + 1].key].map(([s, e]) => `${s}-${e}`).join(', ') === segStr
+    ) {
+      j++
+    }
+
+    const dayLabel = i === j
+      ? DAY_SHORT[DAYS[i].key]
+      : `${DAY_SHORT[DAYS[i].key]}–${DAY_SHORT[DAYS[j].key]}`
+
+    lines.push(`${dayLabel}: ${segStr}`)
+    i = j + 1
+  }
+
+  return lines
+}
