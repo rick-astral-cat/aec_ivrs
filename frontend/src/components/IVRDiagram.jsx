@@ -21,6 +21,7 @@ import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf'
 
 import { treeToMermaid, MERMAID_NODE_STYLES } from './mermaidUtils'
 import { normalizeTree } from './ivrUtils'
+import { scheduleToLines } from './scheduleUtils'
 
 mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' })
 
@@ -233,14 +234,22 @@ export default function IVRDiagram({ ivr, agencyName, agency, flowExportRef }) {
       )
 
       const col2X = margin + 250
-      const hoursText = agency?.has_schedule
-        ? (agency?.business_hours || 'Configurado')
-        : 'Sin horario configurado'
+      // Horario legible para el usuario final (no el JSON crudo).
+      // scheduleToLines produce líneas como "Lun–Vie: 08:00-14:00, 16:00-19:00".
+      let hoursText
+      if (!agency?.has_schedule) {
+        hoursText = 'Sin horario configurado'
+      } else {
+        const lines = scheduleToLines(agency?.business_hours)
+        hoursText = lines.length ? lines.join('   |   ') : 'Horario incompleto'
+      }
       const mailboxText = agency?.after_hours_mailbox || 'No asignado'
 
-      drawField('Horario: ', hoursText, col2X, row1Y, 250)
-      drawField('Buzón fuera horario: ', mailboxText, col2X, row1Y + lineH, 250)
-      drawField('Rangos telefónicos: ', agency?.phone_ranges || 'No especificado', col2X, row1Y + lineH * 2, 250)
+      // Buzón y rangos primero (una línea cada uno); el horario al final porque
+      // puede ocupar varias líneas al envolverse.
+      drawField('Buzón fuera horario: ', mailboxText, col2X, row1Y, 250)
+      drawField('Rangos telefónicos: ', agency?.phone_ranges || 'No especificado', col2X, row1Y + lineH, 250)
+      drawField('Horario: ', hoursText, col2X, row1Y + lineH * 2, 250)
 
       // ── DIAGRAMA 1: React Flow (Página 1) ──
       if (flowCapture?.dataUrl) {
