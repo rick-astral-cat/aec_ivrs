@@ -187,7 +187,42 @@ export default function IVRDiagram({ ivr, agencyName, agency, flowExportRef }) {
       // Tarjeta de Datos Generales de la Agencia
       const cardY = 75
       const cardW = pageW - margin * 2
-      const cardH = 105
+
+      // ── Preparar textos de campos variables para medir la altura necesaria ──
+      const fmtPhone = (digits) => {
+        const d = String(digits).replace(/\D/g, '')
+        if (d.length !== 10) return d || '—'
+        return `${d.slice(0, 2)}-${d.slice(2, 6)}-${d.slice(6)}`
+      }
+      const formatPhoneRangesText = (raw) => {
+        if (!raw) return 'No especificado'
+        return String(raw)
+          .split('|').map(r => r.trim()).filter(Boolean)
+          .map(r => {
+            const [from = '', to = ''] = r.split('-')
+            return to ? `${fmtPhone(from)} al ${fmtPhone(to)}` : fmtPhone(from)
+          })
+          .join('\n')
+      }
+
+      let hoursText
+      if (!agency?.has_schedule) {
+        hoursText = 'Sin horario configurado'
+      } else {
+        const hLines = scheduleToLines(agency?.business_hours)
+        hoursText = hLines.length ? hLines.join('\n') : 'Horario incompleto'
+      }
+      const mailboxText = agency?.after_hours_mailbox || 'No asignado'
+      const phoneRangesText = formatPhoneRangesText(agency?.phone_ranges)
+
+      // Contar líneas de la columna 2 (la que puede crecer) para altura dinámica.
+      // Buzón (1) + Horario (líneas) + Rangos (líneas) + etiquetas.
+      const countLines = (txt) => String(txt).split('\n')
+        .reduce((acc, seg) => acc + Math.max(1, Math.ceil(seg.length / 46)), 0)
+      const col2Lines = 1 /* buzón */ + countLines(hoursText) + countLines(phoneRangesText)
+      // La columna 1 siempre tiene 4 líneas. La tarjeta se ajusta al máximo.
+      const contentLines = Math.max(4, col2Lines)
+      const cardH = Math.max(105, 34 + contentLines * 13 + 10)
 
       pdf.setFillColor(248, 250, 252)
       pdf.setDrawColor(226, 232, 240)
@@ -208,6 +243,8 @@ export default function IVRDiagram({ ivr, agencyName, agency, flowExportRef }) {
       const row1Y = cardY + 38
       const lineH = 15
 
+      // Dibuja "label valor" y devuelve la altura total consumida (soporta
+      // valores que se envuelven en varias líneas sin encimarse con el siguiente).
       const drawField = (label, val, x, y, maxW = 220) => {
         pdf.setFont('helvetica', 'bold')
         pdf.setFontSize(8.5)
@@ -220,6 +257,8 @@ export default function IVRDiagram({ ivr, agencyName, agency, flowExportRef }) {
         const cleanVal = String(val ?? 'No especificado')
         const lines = pdf.splitTextToSize(cleanVal, maxW - labelWidth)
         pdf.text(lines, x + labelWidth + 4, y)
+        // Altura usada: al menos una línea (lineH); líneas extra suman ~11pt c/u
+        return Math.max(lineH, lines.length * 11)
       }
 
       drawField('Agencia: ', agency?.name || agencyName || 'N/A', col1X, row1Y, 230)
@@ -234,22 +273,14 @@ export default function IVRDiagram({ ivr, agencyName, agency, flowExportRef }) {
       )
 
       const col2X = margin + 250
-      // Horario legible para el usuario final (no el JSON crudo).
-      // scheduleToLines produce líneas como "Lun–Vie: 08:00-14:00, 16:00-19:00".
-      let hoursText
-      if (!agency?.has_schedule) {
-        hoursText = 'Sin horario configurado'
-      } else {
-        const lines = scheduleToLines(agency?.business_hours)
-        hoursText = lines.length ? lines.join('   |   ') : 'Horario incompleto'
-      }
-      const mailboxText = agency?.after_hours_mailbox || 'No asignado'
 
-      // Buzón y rangos primero (una línea cada uno); el horario al final porque
-      // puede ocupar varias líneas al envolverse.
-      drawField('Buzón fuera horario: ', mailboxText, col2X, row1Y, 250)
-      drawField('Rangos telefónicos: ', agency?.phone_ranges || 'No especificado', col2X, row1Y + lineH, 250)
-      drawField('Horario: ', hoursText, col2X, row1Y + lineH * 2, 250)
+      // Posicionamiento secuencial: cada campo arranca debajo del anterior,
+      // usando la altura real que consumió (evita el sobremontado).
+      // hoursText, mailboxText y phoneRangesText se calcularon arriba.
+      let cursorY = row1Y
+      cursorY += drawField('Buzón fuera horario: ', mailboxText, col2X, cursorY, 250)
+      cursorY += drawField('Horario: ', hoursText, col2X, cursorY, 250)
+      cursorY += drawField('Rangos telefónicos: ', phoneRangesText, col2X, cursorY, 250)
 
       // ── DIAGRAMA 1: React Flow (Página 1) ──
       if (flowCapture?.dataUrl) {
