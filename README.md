@@ -43,12 +43,21 @@ Permite capturar la estructura completa de un IVR por agencia: menús, submenús
 ```
 aec_ivrs/
 ├── backend/
-│   ├── auth.py          # Hashing bcrypt, tokens JWT y lógica TOTP/QR
-│   ├── database.py      # Conexión SQLite
-│   ├── main.py          # Rutas de autenticación, MFA y CRUD de agencias
-│   ├── manage_users.py  # CLI para crear usuarios y resetear MFA en AWS
-│   ├── models.py        # Modelos User y Agency (SQLAlchemy)
-│   ├── schemas.py       # Schemas Pydantic
+│   ├── auth.py          # bcrypt hashing, JWT tokens and TOTP/QR logic
+│   ├── config.py        # Centralized settings (.env loading, JWT secret)
+│   ├── database.py      # SQLite connection, get_db() and session_scope()
+│   ├── bootstrap.py     # Startup routines (default admin seeding)
+│   ├── main.py          # App assembly: middleware, logging, router wiring
+│   ├── manage_users.py  # CLI to create users and reset MFA on AWS
+│   ├── models.py        # User and Agency models (SQLAlchemy)
+│   ├── schemas.py       # Pydantic schemas
+│   ├── routers/
+│   │   ├── auth.py      # /api/auth/* routes (login, MFA, me)
+│   │   └── agencies.py  # /api/agencies/* CRUD routes
+│   ├── services/
+│   │   ├── agency_service.py  # Agency data-access logic
+│   │   └── user_service.py    # User data-access logic
+│   ├── .env.example     # Template for environment variables
 │   └── requirements.txt
 └── frontend/
     └── src/
