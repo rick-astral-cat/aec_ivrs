@@ -1,20 +1,31 @@
+import logging
 import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, APIRouter, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
+import config  # noqa: F401  # Loads .env and validates settings at import time.
 import models
 import schemas
 import auth
 from database import engine, get_db, SessionLocal
+
+# Configure application logging. A basic console handler is enough for now and
+# gives us a single place to raise the level or attach file/remote handlers when
+# we start auditing changes (e.g. agency edits) later on.
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger("aec_ivrs")
 
 models.Base.metadata.create_all(bind=engine)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Inicialización de usuario por defecto si la base de datos está vacía
+    # Seed the default administrator account if the database has no users yet.
     db = SessionLocal()
     try:
         if db.query(models.User).count() == 0:
@@ -28,9 +39,10 @@ async def lifespan(app: FastAPI):
             )
             db.add(admin_user)
             db.commit()
-            print(
-                f"[AEC IVRS] Se generó el usuario administrador inicial: '{default_user}'. "
-                f"Configurará MFA por QR en su primer inicio de sesión."
+            logger.info(
+                "Initial administrator account created: '%s'. "
+                "MFA will be configured via QR on first login.",
+                default_user,
             )
     finally:
         db.close()
@@ -39,7 +51,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="AEC IVRS API", lifespan=lifespan)
 
-# Configuración de orígenes permitidos para CORS (soporta localhost y variables de entorno para AWS)
+# Allowed CORS origins (supports localhost and environment variables for AWS).
 origins_env = os.getenv("ALLOWED_ORIGINS", "")
 if origins_env:
     allowed_origins = [o.strip() for o in origins_env.split(",") if o.strip()]
@@ -60,9 +72,9 @@ app.add_middleware(
 )
 
 
-# Todas las rutas del API viven bajo /api para no colisionar con las rutas del
-# SPA (React Router). Así nginx puede servir index.html en /agencies/{id} y
-# enrutar las peticiones de datos a /api/agencies/{id}.
+# All API routes live under /api so they do not collide with the SPA routes
+# (React Router). This lets nginx serve index.html on /agencies/{id} while
+# routing data requests to /api/agencies/{id}.
 api = APIRouter(prefix="/api")
 
 

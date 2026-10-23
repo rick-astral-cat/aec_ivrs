@@ -106,11 +106,15 @@ python manage_users.py change-password --username admin --password NuevaPassword
 ### Variables de entorno recomendadas para producción en AWS:
 | Variable | Descripción | Valor por defecto |
 |---|---|---|
-| `JWT_SECRET` | Clave secreta para firmar tokens JWT | *Clave por defecto interna* |
+| `APP_ENV` | Entorno de ejecución: `development` o `production`. En `production` el backend **no arranca** si falta `JWT_SECRET`. | `development` |
+| `JWT_SECRET` | Clave secreta para firmar tokens JWT. **Obligatoria en producción** (sin fallback). En desarrollo usa una clave insegura marcada como tal. Genérala con `python -c "import secrets; print(secrets.token_urlsafe(64))"` | *(ninguno en producción)* |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | Duración del token de acceso en minutos | `1440` (24 h) |
 | `DEFAULT_ADMIN_USER` | Usuario admin inicial si la BD está vacía | `admin` |
 | `DEFAULT_ADMIN_PASSWORD` | Contraseña admin inicial si la BD está vacía | `Dalton2026!` |
 | `ALLOWED_ORIGINS` | Orígenes CORS permitidos separados por coma | `http://localhost:5173,http://localhost:3000` |
 | `VITE_API_URL` | (Frontend) URL del backend en producción | `http://localhost:8000` |
+
+El backend carga automáticamente un archivo `backend/.env` si existe (vía `python-dotenv`). Usa `backend/.env.example` como plantilla. El archivo `.env` está en `.gitignore` y nunca debe subirse al repositorio; en producción prefiere inyectar estas variables mediante el sistema (systemd, Docker o la task definition de AWS).
 
 ---
 
@@ -135,6 +139,7 @@ El campo `ivr` de cada agencia almacena un árbol de nodos. Tipos de nodo:
 # Backend
 cd backend
 .venv\Scripts\activate       # Windows (.venv/bin/activate en Linux)
+copy .env.example .env       # Windows (cp .env.example .env en Linux) — opcional en dev
 uvicorn main:app --reload    # http://localhost:8000
 
 # Frontend

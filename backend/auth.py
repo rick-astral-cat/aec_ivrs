@@ -1,6 +1,5 @@
 import base64
 import io
-import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -12,14 +11,15 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+import config
 from database import get_db
 import models
 
-# Configuración JWT y Seguridad
-SECRET_KEY = os.getenv("JWT_SECRET", "dalton_aec_ivrs_secret_key_change_in_production_2026")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))  # 24 horas por defecto
-MFA_TOKEN_EXPIRE_MINUTES = 10
+# JWT and security configuration (resolved and validated in config.py).
+SECRET_KEY = config.JWT_SECRET
+ALGORITHM = config.JWT_ALGORITHM
+ACCESS_TOKEN_EXPIRE_MINUTES = config.ACCESS_TOKEN_EXPIRE_MINUTES  # 24h default
+MFA_TOKEN_EXPIRE_MINUTES = config.MFA_TOKEN_EXPIRE_MINUTES
 
 security = HTTPBearer(auto_error=False)
 
