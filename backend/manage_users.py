@@ -1,120 +1,98 @@
 #!/usr/bin/env python3
 """
-CLI de Gestión de Usuarios para Dalton AEC IVRS.
-Permite administrar usuarios directamente desde el servidor AWS sin necesidad
-de manipular hashes de contraseña manualmente en SQLite.
+User management CLI for Dalton AEC IVRS.
 
-Uso:
+Lets you administer users directly on the AWS server without manually
+manipulating password hashes in SQLite.
+
+Usage:
   python manage_users.py list
-  python manage_users.py create --username admin --password MiPasswordSeguro123!
+  python manage_users.py create --username admin --password MySecurePassword123!
   python manage_users.py reset-mfa --username admin
-  python manage_users.py change-password --username admin --password NuevoPassword123!
+  python manage_users.py change-password --username admin --password NewPassword123!
 """
 
 import argparse
 import sys
-from database import SessionLocal, engine, Base
-import models
-import auth
 
-# Asegurar tablas creadas
+from database import session_scope, engine, Base
+import models
+from services import user_service
+
+# Ensure tables exist.
 Base.metadata.create_all(bind=engine)
 
 
 def list_users():
-    db = SessionLocal()
-    try:
+    with session_scope() as db:
         users = db.query(models.User).all()
         if not users:
-            print("No hay usuarios registrados en la base de datos.")
+            print("No users registered in the database.")
             return
 
-        print(f"\n{'ID':<5} {'Usuario':<25} {'MFA Activo':<12} {'Activo':<8}")
+        print(f"\n{'ID':<5} {'Username':<25} {'MFA Enabled':<12} {'Active':<8}")
         print("-" * 55)
         for u in users:
-            mfa_status = "Sí" if u.is_mfa_enabled else "Pendiente"
-            active_status = "Sí" if u.is_active else "No"
+            mfa_status = "Yes" if u.is_mfa_enabled else "Pending"
+            active_status = "Yes" if u.is_active else "No"
             print(f"{u.id:<5} {u.username:<25} {mfa_status:<12} {active_status:<8}")
         print()
-    finally:
-        db.close()
 
 
 def create_user(username: str, password: str):
-    db = SessionLocal()
-    try:
-        existing = db.query(models.User).filter(models.User.username == username.strip()).first()
-        if existing:
-            print(f"Error: El usuario '{username}' ya existe.")
+    with session_scope() as db:
+        if user_service.get_by_username(db, username):
+            print(f"Error: user '{username}' already exists.")
             sys.exit(1)
 
-        hashed = auth.hash_password(password)
-        new_user = models.User(
-            username=username.strip(),
-            hashed_password=hashed,
-            is_mfa_enabled=False,
-            is_active=True,
-        )
-        db.add(new_user)
-        db.commit()
-        print(f"Usuario '{username}' creado exitosamente.")
-        print("En su primer inicio de sesión se le solicitará escanear el código QR para configurar MFA.")
-    finally:
-        db.close()
+        user_service.create_user(db, username=username, password=password)
+        print(f"User '{username}' created successfully.")
+        print("On first login they will be asked to scan the QR code to set up MFA.")
 
 
 def reset_mfa(username: str):
-    db = SessionLocal()
-    try:
-        user = db.query(models.User).filter(models.User.username == username.strip()).first()
+    with session_scope() as db:
+        user = user_service.get_by_username(db, username)
         if not user:
-            print(f"Error: Usuario '{username}' no encontrado.")
+            print(f"Error: user '{username}' not found.")
             sys.exit(1)
 
-        user.is_mfa_enabled = False
-        user.totp_secret = None
-        db.commit()
-        print(f"MFA reseteado para el usuario '{username}'.")
-        print("En su próximo inicio de sesión verá un nuevo código QR para vincular su aplicación Authenticator.")
-    finally:
-        db.close()
+        user_service.reset_mfa(db, user)
+        print(f"MFA reset for user '{username}'.")
+        print("On their next login they will see a new QR code to link their Authenticator app.")
 
 
 def change_password(username: str, new_password: str):
-    db = SessionLocal()
-    try:
-        user = db.query(models.User).filter(models.User.username == username.strip()).first()
+    with session_scope() as db:
+        user = user_service.get_by_username(db, username)
         if not user:
-            print(f"Error: Usuario '{username}' no encontrado.")
+            print(f"Error: user '{username}' not found.")
             sys.exit(1)
 
-        user.hashed_password = auth.hash_password(new_password)
-        db.commit()
-        print(f"Contraseña actualizada exitosamente para el usuario '{username}'.")
-    finally:
-        db.close()
+        user_service.set_password(db, user, new_password)
+        print(f"Password updated successfully for user '{username}'.")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Administración de usuarios de AEC IVRS")
+    parser = argparse.ArgumentParser(description="AEC IVRS user administration")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    # Subcomando list
-    subparsers.add_parser("list", help="Listar todos los usuarios y su estado MFA")
+    # list subcommand
+    subparsers.add_parser("list", help="List all users and their MFA status")
 
-    # Subcomando create
-    create_p = subparsers.add_parser("create", help="Crear un nuevo usuario")
-    create_p.add_argument("--username", required=True, help="Nombre de usuario o correo")
-    create_p.add_argument("--password", required=True, help="Contraseña inicial")
+    # create subcommand
+    create_p = subparsers.add_parser("create", help="Create a new user")
+    create_p.add_argument("--username", required=True, help="Username or email")
+    create_p.add_argument("--password", required=True, help="Initial password")
 
-    # Subcomando reset-mfa
-    reset_p = subparsers.add_parser("reset-mfa", help="Resetear MFA de un usuario (para re-escanear QR)")
-    reset_p.add_argument("--username", required=True, help="Nombre de usuario")
+    # reset-mfa subcommand
+    reset_p = subparsers.add_parser("reset-mfa", help="Reset a user's MFA (to re-scan the QR)")
+    reset_p.add_argument("--username", required=True, help="Username")
 
-    # Subcomando change-password
-    pwd_p = subparsers.add_parser("change-password", help="Cambiar contraseña de un usuario")
-    pwd_p.add_argument("--username", required=True, help="Nombre de usuario")
-    pwd_p.add_argument("--password", required=True, help="Nueva contraseña")
+    # change-password subcommand
+    pwd_p = subparsers.add_parser("change-password", help="Change a user's password")
+    pwd_p.add_argument("--username", required=True, help="Username")
+    pwd_p.add_argument("--password", required=True, help="New password")
 
     args = parser.parse_args()
 

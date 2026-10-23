@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional, Any
 
 
@@ -18,17 +18,17 @@ class AgencyCreate(AgencyBase):
 
 
 class AgencyUpdate(AgencyBase):
+    # Full-replacement (PUT) semantics: all fields are required, same as create.
     pass
 
 
 class AgencyOut(AgencyBase):
     id: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
-# --- Schemas de Autenticación y MFA ---
+# --- Authentication and MFA schemas ---
 
 class LoginRequest(BaseModel):
     username: str
@@ -68,5 +68,4 @@ class UserOut(BaseModel):
     is_mfa_enabled: bool
     is_active: bool
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
