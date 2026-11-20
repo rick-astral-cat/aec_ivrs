@@ -1,5 +1,7 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 from typing import Optional, Any
+
+import ivr_schema
 
 
 class AgencyBase(BaseModel):
@@ -11,6 +13,12 @@ class AgencyBase(BaseModel):
     business_hours: Optional[str] = None
     after_hours_mailbox: Optional[str] = None
     ivr: Optional[Any] = None
+
+    @field_validator("ivr")
+    @classmethod
+    def _validate_ivr(cls, value: Any) -> Any:
+        """Validate the IVR tree structure before persisting it."""
+        return ivr_schema.validate_ivr(value)
 
 
 class AgencyCreate(AgencyBase):
