@@ -25,15 +25,15 @@ security = HTTPBearer(auto_error=False)
 
 
 def hash_password(password: str) -> str:
-    """Genera hash seguro con bcrypt."""
-    # bcrypt limita contraseñas a 72 bytes
+    """Generate a secure bcrypt hash."""
+    # bcrypt limits passwords to 72 bytes.
     pwd_bytes = password.encode("utf-8")[:72]
     salt = bcrypt.gensalt(rounds=12)
     return bcrypt.hashpw(pwd_bytes, salt).decode("utf-8")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verifica una contraseña plana contra su hash bcrypt."""
+    """Verify a plaintext password against its bcrypt hash."""
     try:
         pwd_bytes = plain_password.encode("utf-8")[:72]
         return bcrypt.checkpw(pwd_bytes, hashed_password.encode("utf-8"))
@@ -42,18 +42,18 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 def generate_totp_secret() -> str:
-    """Genera una clave secreta base32 para TOTP."""
+    """Generate a base32 secret key for TOTP."""
     return pyotp.random_base32()
 
 
 def get_totp_uri(username: str, secret: str) -> str:
-    """Genera el URI estándar otpauth:// compatible con Google Authenticator y Authy."""
+    """Build the standard otpauth:// URI compatible with Google Authenticator and Authy."""
     totp = pyotp.TOTP(secret)
     return totp.provisioning_uri(name=username, issuer_name="Dalton AEC IVRS")
 
 
 def generate_qr_data_url(otpauth_uri: str) -> str:
-    """Genera la imagen del código QR en base64 (Data URL) lista para src en <img>."""
+    """Generate the QR image as a base64 Data URL ready for an <img> src."""
     qr = qrcode.QRCode(
         version=1,
         error_correction=qrcode.constants.ERROR_CORRECT_M,
@@ -70,7 +70,7 @@ def generate_qr_data_url(otpauth_uri: str) -> str:
 
 
 def verify_totp_code(secret: str, code: str) -> bool:
-    """Verifica el código de 6 dígitos con ventana de tolerancia de ±30 segundos."""
+    """Verify the 6-digit code with a tolerance window of +/-30 seconds."""
     if not secret or not code:
         return False
     totp = pyotp.TOTP(secret)
@@ -78,7 +78,7 @@ def verify_totp_code(secret: str, code: str) -> bool:
 
 
 def create_token(payload: dict, expires_minutes: int) -> str:
-    """Genera un token JWT firmado con expiración."""
+    """Generate a signed JWT with an expiration."""
     to_encode = payload.copy()
     expire = datetime.now(timezone.utc) + timedelta(minutes=expires_minutes)
     to_encode.update({"exp": expire})
@@ -86,7 +86,7 @@ def create_token(payload: dict, expires_minutes: int) -> str:
 
 
 def decode_token(token: str) -> Optional[dict]:
-    """Decodifica y valida un token JWT."""
+    """Decode and validate a JWT."""
     try:
         return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     except jwt.PyJWTError:
@@ -94,7 +94,7 @@ def decode_token(token: str) -> Optional[dict]:
 
 
 def create_access_token(user_id: int, username: str) -> str:
-    """Token de acceso principal para peticiones a la API."""
+    """Primary access token for API requests."""
     return create_token(
         {"sub": str(user_id), "username": username, "scope": "access"},
         expires_minutes=ACCESS_TOKEN_EXPIRE_MINUTES,
@@ -102,7 +102,7 @@ def create_access_token(user_id: int, username: str) -> str:
 
 
 def create_mfa_challenge_token(user_id: int, username: str) -> str:
-    """Token temporal de desafío MFA al iniciar sesión."""
+    """Temporary MFA challenge token issued at login."""
     return create_token(
         {"sub": str(user_id), "username": username, "scope": "mfa_challenge"},
         expires_minutes=MFA_TOKEN_EXPIRE_MINUTES,
@@ -110,7 +110,7 @@ def create_mfa_challenge_token(user_id: int, username: str) -> str:
 
 
 def create_mfa_setup_token(user_id: int, username: str, secret: str) -> str:
-    """Token temporal para primer enrolamiento de MFA con QR."""
+    """Temporary token for first-time MFA enrollment via QR."""
     return create_token(
         {"sub": str(user_id), "username": username, "temp_secret": secret, "scope": "mfa_setup"},
         expires_minutes=15,
@@ -121,11 +121,11 @@ def get_current_user(
     auth: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: Session = Depends(get_db),
 ) -> models.User:
-    """Dependencia para proteger endpoints con JWT Bearer."""
+    """Dependency that protects endpoints using a JWT Bearer token."""
     if not auth or not auth.credentials:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Autenticación requerida. Token no proporcionado.",
+            detail="Authentication required. No token provided.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -133,7 +133,7 @@ def get_current_user(
     if not payload or payload.get("scope") != "access":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token inválido o expirado. Por favor inicia sesión nuevamente.",
+            detail="Invalid or expired token. Please log in again.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -141,7 +141,7 @@ def get_current_user(
     if not user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token sin identificador de usuario válido.",
+            detail="Token without a valid user identifier.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -149,7 +149,7 @@ def get_current_user(
     if not user or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Usuario inactivo o no encontrado.",
+            detail="Inactive or unknown user.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
