@@ -248,7 +248,11 @@ Al crear una migración con `--autogenerate`, revisa siempre el archivo generado
 
 ---
 
-## Despliegue del backend en producción
+## Despliegue en producción
+
+Backend y frontend se despliegan con scripts en `deploy/`. Ninguno toca git: primero actualiza el código tú mismo. Cuando un cambio toca ambos (p. ej. rutas nuevas del API), despliega **los dos**.
+
+### Backend
 
 El script `deploy/deploy_backend.sh` copia el backend del checkout de git (`~/aec_ivrs`) al directorio productivo (`/var/www/html/aec_ivrs/backend`). No toca git: primero actualiza el código tú mismo.
 
@@ -260,6 +264,21 @@ bash deploy/deploy_backend.sh             # -y para omitir la confirmación
 ```
 
 El script detiene el servicio `aec_ivrs.service`, respalda `ivrs.db` en `db_backups/` con fecha y hora, sincroniza el código con `rsync` (sin tocar `.env`, `.venv/`, `*.db` ni `__pycache__/`), instala dependencias, aplica las migraciones y reinicia el servicio verificando que quede activo. Si algo falla, indica si la base de datos se modificó y cómo restaurar el respaldo. Rutas y nombre del servicio se pueden cambiar con variables de entorno (`DEST_DIR`, `SERVICE`, etc.).
+
+### Frontend
+
+El script `deploy/deploy_frontend.sh` compila el frontend en el checkout (`npm ci` + `npm run build`) y publica `dist/` en el directorio que sirve nginx (por defecto `/var/www/html/aec_ivrs/frontend/dist`). No reinicia ningún servicio.
+
+```bash
+cd ~/aec_ivrs
+bash deploy/deploy_frontend.sh --dry-run   # compila y muestra qué archivos cambiarían
+bash deploy/deploy_frontend.sh             # -y para omitir la confirmación
+```
+
+- Respalda la versión publicada en `frontend_backups/` (conserva las últimas 5, configurable con `KEEP_BACKUPS`) e imprime el comando para regresar a ella.
+- Avisa si el destino no coincide con ningún `root` de nginx; usa `DEST_DIR=<ruta>` para cambiarlo.
+- Requiere Node.js 20.19+ o 22.12+ en el servidor (Vite 8). En producción no definas `VITE_API_URL`: el frontend llama a `/api` en el mismo dominio.
+- Después de publicar, recarga con Ctrl+F5 para evitar el `index.html` en caché.
 
 ---
 
