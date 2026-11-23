@@ -8,20 +8,32 @@ import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
+import VisibilityIcon from '@mui/icons-material/Visibility'
 import { getAgencies, deleteAgency, createAgency } from '../api/agencies'
+import { PERMISSIONS } from '../auth/permissions'
+import { usePermission } from '../hooks/usePermission'
 import { summarizeSchedule } from '../components/scheduleUtils'
 
 export default function AgenciesPage() {
   const [agencies, setAgencies] = useState([])
   const navigate = useNavigate()
+  const canCreate = usePermission(PERMISSIONS.AGENCIES_CREATE)
+  const canUpdate = usePermission(PERMISSIONS.AGENCIES_UPDATE)
+  const canDelete = usePermission(PERMISSIONS.AGENCIES_DELETE)
 
   const load = () => getAgencies().then(r => setAgencies(r.data))
   useEffect(() => { load() }, [])
 
   const handleDelete = async (id) => {
     if (!confirm('¿Eliminar agencia?')) return
-    await deleteAgency(id)
-    load()
+    try {
+      await deleteAgency(id)
+      load()
+    } catch (err) {
+      alert(err.response?.status === 403
+        ? 'No tienes permiso para eliminar agencias.'
+        : 'No se pudo eliminar la agencia.')
+    }
   }
 
   const handleCopy = async (a) => {
@@ -35,13 +47,15 @@ export default function AgenciesPage() {
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
         <Typography variant="h5" fontWeight={600}>Agencias</Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => navigate('/agencies/new')}
-        >
-          Nueva agencia
-        </Button>
+        {canCreate && (
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => navigate('/agencies/new')}
+          >
+            Nueva agencia
+          </Button>
+        )}
       </Box>
 
       <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'divider' }}>
@@ -95,21 +109,25 @@ export default function AgenciesPage() {
                     : <Chip label="Sin IVR" size="small" />}
                 </TableCell>
                 <TableCell align="right">
-                  <Tooltip title="Editar">
+                  <Tooltip title={canUpdate ? 'Editar' : 'Ver'}>
                     <IconButton size="small" onClick={() => navigate(`/agencies/${a.id}`)}>
-                      <EditIcon fontSize="small" />
+                      {canUpdate ? <EditIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
                     </IconButton>
                   </Tooltip>
-                  <Tooltip title="Copiar agencia">
-                    <IconButton size="small" onClick={() => handleCopy(a)}>
-                      <ContentCopyIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Eliminar">
-                    <IconButton size="small" color="error" onClick={() => handleDelete(a.id)}>
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
+                  {canCreate && (
+                    <Tooltip title="Copiar agencia">
+                      <IconButton size="small" onClick={() => handleCopy(a)}>
+                        <ContentCopyIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                  {canDelete && (
+                    <Tooltip title="Eliminar">
+                      <IconButton size="small" color="error" onClick={() => handleDelete(a.id)}>
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  )}
                 </TableCell>
               </TableRow>
             ))}

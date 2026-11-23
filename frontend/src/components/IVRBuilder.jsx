@@ -26,7 +26,7 @@ const NODE_MENU = [
   { type: 'cadd',        label: 'CADD' },
 ]
 
-function FlowCanvas({ ivr, agencyName, onSave, flowExportRef }) {
+function FlowCanvas({ ivr, agencyName, onSave, flowExportRef, readOnly }) {
   const [nodes, setNodes, onNodesChange] = useNodesState([])
   const [edges, setEdges, onEdgesChange] = useEdgesState([])
   const [selected, setSelected] = useState(null)
@@ -124,14 +124,18 @@ function FlowCanvas({ ivr, agencyName, onSave, flowExportRef }) {
     <>
       {/* Barra superior */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'wrap' }}>
-        <Typography variant="caption" color="text.secondary">Agregar:</Typography>
-        <ButtonGroup size="small" variant="outlined">
-          {NODE_MENU.map(({ type, label }) => (
-            <Button key={type} startIcon={<AddIcon />} onClick={() => addNode(type)}>
-              {label}
-            </Button>
-          ))}
-        </ButtonGroup>
+        {!readOnly && (
+          <>
+            <Typography variant="caption" color="text.secondary">Agregar:</Typography>
+            <ButtonGroup size="small" variant="outlined">
+              {NODE_MENU.map(({ type, label }) => (
+                <Button key={type} startIcon={<AddIcon />} onClick={() => addNode(type)}>
+                  {label}
+                </Button>
+              ))}
+            </ButtonGroup>
+          </>
+        )}
         <Box sx={{ flexGrow: 1 }} />
 
         <ButtonGroup size="small" variant="outlined">
@@ -159,6 +163,7 @@ function FlowCanvas({ ivr, agencyName, onSave, flowExportRef }) {
           </Tooltip>
         </ButtonGroup>
 
+        {!readOnly && (
         <Button
           variant="contained"
           size="small"
@@ -175,12 +180,15 @@ function FlowCanvas({ ivr, agencyName, onSave, flowExportRef }) {
         >
           {saveSuccess ? '¡Guardado!' : 'Guardar IVR'}
         </Button>
+        )}
       </Box>
 
       {/* Canvas */}
       <Box sx={{ mb: 0.5 }}>
         <Typography variant="caption" color="text.secondary">
-          Tip: haz clic en una línea para desconectarla, o selecciónala y presiona Suprimir.
+          {readOnly
+            ? 'Solo lectura: puedes mover la vista y exportar, pero no editar el IVR.'
+            : 'Tip: haz clic en una línea para desconectarla, o selecciónala y presiona Suprimir.'}
         </Typography>
       </Box>
       <Box
@@ -199,11 +207,14 @@ function FlowCanvas({ ivr, agencyName, onSave, flowExportRef }) {
           nodeTypes={nodeTypes}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          onNodeClick={onNodeClick}
-          onEdgeClick={onEdgeClick}
-          deleteKeyCode={['Backspace', 'Delete']}
-          edgesReconnectable
+          onConnect={readOnly ? undefined : onConnect}
+          onNodeClick={readOnly ? undefined : onNodeClick}
+          onEdgeClick={readOnly ? undefined : onEdgeClick}
+          deleteKeyCode={readOnly ? null : ['Backspace', 'Delete']}
+          nodesDraggable={!readOnly}
+          nodesConnectable={!readOnly}
+          elementsSelectable={!readOnly}
+          edgesReconnectable={!readOnly}
           fitView
         >
           <Background />
@@ -223,7 +234,7 @@ function FlowCanvas({ ivr, agencyName, onSave, flowExportRef }) {
   )
 }
 
-export default function IVRBuilder({ ivr, agencyName, onSave, flowExportRef }) {
+export default function IVRBuilder({ ivr, agencyName, onSave, flowExportRef, readOnly = false }) {
   return (
     <Box sx={{ mt: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
@@ -232,7 +243,13 @@ export default function IVRBuilder({ ivr, agencyName, onSave, flowExportRef }) {
       </Box>
       <Divider sx={{ mb: 1 }} />
       <ReactFlowProvider>
-        <FlowCanvas ivr={ivr} agencyName={agencyName} onSave={onSave} flowExportRef={flowExportRef} />
+        <FlowCanvas
+          ivr={ivr}
+          agencyName={agencyName}
+          onSave={onSave}
+          flowExportRef={flowExportRef}
+          readOnly={readOnly}
+        />
       </ReactFlowProvider>
     </Box>
   )

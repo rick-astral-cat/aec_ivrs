@@ -25,6 +25,8 @@ export function AuthProvider({ children }) {
       is_mfa_enabled: authData.is_mfa_enabled,
     }
     localStorage.setItem('user', JSON.stringify(userData))
+    // Esperar a /api/auth/me (rol y permisos) antes de mostrar las rutas protegidas.
+    setLoading(true)
     setToken(authData.access_token)
     setUser(userData)
   }, [])

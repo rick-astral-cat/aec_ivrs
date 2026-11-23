@@ -51,7 +51,7 @@ const formatPhone = (digits) => {
   return `${d.slice(0, 2)}-${d.slice(2, 6)}-${d.slice(6)}`
 }
 
-export default function AgencyForm({ initial, onSubmit, loading }) {
+export default function AgencyForm({ initial, onSubmit, loading, readOnly = false }) {
   const [form, setForm] = useState(EMPTY)
   const [ranges, setRanges] = useState([{ ...EMPTY_RANGE }])
   const [schedule, setSchedule] = useState(emptySchedule())
@@ -146,17 +146,27 @@ export default function AgencyForm({ initial, onSubmit, loading }) {
         <Typography variant="h5" fontWeight={600} sx={{ flexGrow: 1 }}>
           {form.name || 'Nueva agencia'}
         </Typography>
-        <Button
-          type="submit"
-          variant="contained"
-          color={saveSuccess ? 'success' : 'primary'}
-          startIcon={saveSuccess ? <CheckIcon /> : <SaveIcon />}
-          disabled={loading}
-        >
-          {saveSuccess ? '¡Guardado!' : 'Guardar'}
-        </Button>
+        {readOnly ? (
+          <Chip label="Solo lectura" size="small" variant="outlined" />
+        ) : (
+          <Button
+            type="submit"
+            variant="contained"
+            color={saveSuccess ? 'success' : 'primary'}
+            startIcon={saveSuccess ? <CheckIcon /> : <SaveIcon />}
+            disabled={loading}
+          >
+            {saveSuccess ? '¡Guardado!' : 'Guardar'}
+          </Button>
+        )}
       </Box>
 
+      {/* En solo lectura, el fieldset deshabilita de forma nativa todos los campos y botones */}
+      <Box
+        component="fieldset"
+        disabled={readOnly}
+        sx={{ border: 0, p: 0, m: 0, minWidth: 0 }}
+      >
       <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', p: 3 }}>
         <Typography variant="subtitle2" color="text.secondary" gutterBottom>
           DATOS GENERALES
@@ -333,6 +343,7 @@ export default function AgencyForm({ initial, onSubmit, loading }) {
           )}
         </Grid>
       </Paper>
+      </Box>
 
       {/* ── Diálogo: copiar horario del día origen a otros días ── */}
       <Dialog open={copyDialog.open} onClose={closeCopyDialog} maxWidth="xs" fullWidth>
