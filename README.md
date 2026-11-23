@@ -46,7 +46,7 @@ aec_ivrs/
 │   ├── auth.py          # bcrypt hashing, JWT tokens and TOTP/QR logic
 │   ├── config.py        # Centralized settings (.env loading, JWT secret)
 │   ├── database.py      # SQLite connection, get_db() and session_scope()
-│   ├── bootstrap.py     # Startup routines (default admin seeding)
+│   ├── bootstrap.py     # Startup routines (run migrations, default admin seeding)
 │   ├── main.py          # App assembly: middleware, logging, router wiring
 │   ├── manage_users.py  # CLI to create users and reset MFA on AWS
 │   ├── models.py        # User and Agency models (SQLAlchemy)
@@ -57,6 +57,8 @@ aec_ivrs/
 │   ├── services/
 │   │   ├── agency_service.py  # Agency data-access logic
 │   │   └── user_service.py    # User data-access logic
+│   ├── migrations/      # Alembic migrations (versions/0001_..., 0002_...)
+│   ├── alembic.ini      # Alembic configuration
 │   ├── .env.example     # Template for environment variables
 │   └── requirements.txt
 └── frontend/
@@ -149,12 +151,32 @@ El campo `ivr` de cada agencia almacena un árbol de nodos. Tipos de nodo:
 cd backend
 .venv\Scripts\activate       # Windows (.venv/bin/activate en Linux)
 copy .env.example .env       # Windows (cp .env.example .env en Linux) — opcional en dev
+pip install -r requirements.txt
 uvicorn main:app --reload    # http://localhost:8000
 
 # Frontend
 cd frontend
 npm run dev                  # http://localhost:5173
 ```
+
+---
+
+## Migraciones de base de datos (Alembic)
+
+El esquema se administra con **Alembic**. El backend aplica automáticamente las migraciones pendientes al arrancar (`bootstrap.run_migrations`), igual que `manage_users.py`. Por eso un despliegue normal es: `git pull`, `pip install -r requirements.txt` y reiniciar el servicio.
+
+- Una base creada antes de Alembic (sin tabla `alembic_version`) se marca automáticamente en la revisión base `0001` sin recrear tablas, y luego se aplican las migraciones nuevas.
+- **Respalda `ivrs.db` antes de desplegar cambios de esquema.**
+- Arranca el backend siempre desde `backend/`: la ruta de la base (`./ivrs.db`) es relativa al directorio actual.
+
+```bash
+cd backend
+alembic current                                                  # revisión aplicada
+alembic revision --autogenerate --rev-id 0002 -m "add user roles" # nueva migración
+alembic upgrade head                                             # aplicar a mano (opcional)
+```
+
+Al crear una migración con `--autogenerate`, revisa siempre el archivo generado antes de hacer commit.
 
 ---
 

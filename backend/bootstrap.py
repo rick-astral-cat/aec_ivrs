@@ -2,12 +2,45 @@
 
 import logging
 import os
+from pathlib import Path
 
+from alembic import command
+from alembic.config import Config
+from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 
+from database import engine
 from services import user_service
 
 logger = logging.getLogger("aec_ivrs.bootstrap")
+
+ALEMBIC_INI = Path(__file__).resolve().parent / "alembic.ini"
+
+# Revision that matches the schema created by the old ``create_all()`` call.
+BASELINE_REVISION = "0001"
+
+
+def run_migrations() -> None:
+    """Bring the database schema up to date by applying pending Alembic migrations.
+
+    Databases created before Alembic was adopted already have the baseline
+    tables but no ``alembic_version`` table. Those are stamped at the baseline
+    revision first (without re-creating tables) so only newer migrations run.
+    """
+    config = Config(str(ALEMBIC_INI))
+    # Keep the application's logging configuration instead of alembic.ini's.
+    config.attributes["configure_logger"] = False
+
+    tables = set(inspect(engine).get_table_names())
+    if "alembic_version" not in tables and "users" in tables:
+        logger.info(
+            "Existing database without migration history detected; "
+            "stamping baseline revision %s.",
+            BASELINE_REVISION,
+        )
+        command.stamp(config, BASELINE_REVISION)
+
+    command.upgrade(config, "head")
 
 
 def ensure_default_admin(db: Session) -> None:

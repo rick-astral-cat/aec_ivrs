@@ -8,9 +8,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 import config  # noqa: F401  # Loads .env and validates settings at import time.
-import models
-from bootstrap import ensure_default_admin
-from database import engine, session_scope
+from bootstrap import ensure_default_admin, run_migrations
+from database import session_scope
 from routers import agencies, auth as auth_router
 
 # Configure application logging. A basic console handler is enough for now and
@@ -21,11 +20,11 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 
-models.Base.metadata.create_all(bind=engine)
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Apply pending schema migrations before serving any request.
+    run_migrations()
     # Seed the default administrator account on first run.
     with session_scope() as db:
         ensure_default_admin(db)
