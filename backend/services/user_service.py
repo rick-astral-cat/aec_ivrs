@@ -21,6 +21,12 @@ def get_by_username(db: Session, username: str) -> Optional[models.User]:
     return db.query(models.User).filter(models.User.username == username.strip()).first()
 
 
+def list_active_users(db: Session) -> list[models.User]:
+    """Return active users ordered by display name (used by member pickers)."""
+    users = db.query(models.User).filter(models.User.is_active.is_(True)).all()
+    return sorted(users, key=lambda u: (u.full_name or u.username).lower())
+
+
 def count_users(db: Session) -> int:
     """Return the total number of users."""
     return db.query(models.User).count()
