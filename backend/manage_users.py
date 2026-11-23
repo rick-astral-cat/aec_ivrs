@@ -15,12 +15,10 @@ Usage:
 import argparse
 import sys
 
-from database import session_scope, engine, Base
+from bootstrap import run_migrations
+from database import session_scope
 import models
 from services import user_service
-
-# Ensure tables exist.
-Base.metadata.create_all(bind=engine)
 
 
 def list_users():
@@ -95,6 +93,9 @@ def main():
     pwd_p.add_argument("--password", required=True, help="New password")
 
     args = parser.parse_args()
+
+    # Make sure the schema is up to date before touching any table.
+    run_migrations()
 
     if args.command == "list":
         list_users()
