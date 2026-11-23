@@ -5,6 +5,8 @@ import AppLayout from './components/AppLayout'
 import LoginPage from './pages/LoginPage'
 import AgenciesPage from './pages/AgenciesPage'
 import AgencyDetailPage from './pages/AgencyDetailPage'
+import ProjectsPage from './pages/ProjectsPage'
+import ProjectDetailPage from './pages/ProjectDetailPage'
 
 export default function App() {
   return (
@@ -32,6 +34,29 @@ export default function App() {
               <ProtectedRoute>
                 <AppLayout>
                   <AgencyDetailPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Migración TEAMS */}
+          <Route
+            path="/teams-migration"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <ProjectsPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/teams-migration/:id"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <ProjectDetailPage />
                 </AppLayout>
               </ProtectedRoute>
             }

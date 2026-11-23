@@ -35,14 +35,23 @@ import { useAuth } from '../context/AuthContext'
 import { ROLE_LABELS } from '../auth/permissions'
 import { reconfigureMfaInit, verifyMfaSetup } from '../api/auth'
 import MfaQrCard from './MfaQrCard'
+import TeamsIcon from './TeamsIcon'
 import MfaCodeInput from './MfaCodeInput'
 
 const DRAWER_FULL = 220
 const DRAWER_MINI = 56
 
+// `match`: prefijos de ruta que marcan la entrada como activa (incluye sus detalles).
 const NAV_ITEMS = [
-  { label: 'Agencias', icon: <BusinessIcon />, path: '/' },
+  { label: 'Agencias', icon: <BusinessIcon />, path: '/', match: ['/', '/agencies'] },
+  { label: 'Migración TEAMS', icon: <TeamsIcon />, path: '/teams-migration', match: ['/teams-migration'] },
 ]
+
+function isNavItemActive(item, pathname) {
+  return item.match.some((prefix) =>
+    prefix === '/' ? pathname === '/' : pathname === prefix || pathname.startsWith(`${prefix}/`),
+  )
+}
 
 export default function AppLayout({ children }) {
   const [open, setOpen] = useState(true)
@@ -248,15 +257,15 @@ export default function AppLayout({ children }) {
         }}
       >
         <List dense>
-          {NAV_ITEMS.map(({ label, icon, path }) => (
-            <Tooltip key={path} title={open ? '' : label} placement="right">
+          {NAV_ITEMS.map((item) => (
+            <Tooltip key={item.path} title={open ? '' : item.label} placement="right">
               <ListItemButton
-                selected={pathname === path}
-                onClick={() => navigate(path)}
+                selected={isNavItemActive(item, pathname)}
+                onClick={() => navigate(item.path)}
                 sx={{ px: 1.5, py: 1 }}
               >
-                <ListItemIcon sx={{ minWidth: 36 }}>{icon}</ListItemIcon>
-                {open && <ListItemText primary={label} />}
+                <ListItemIcon sx={{ minWidth: 36 }}>{item.icon}</ListItemIcon>
+                {open && <ListItemText primary={item.label} />}
               </ListItemButton>
             </Tooltip>
           ))}
