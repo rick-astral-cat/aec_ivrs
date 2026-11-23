@@ -32,6 +32,7 @@ import QrCodeIcon from '@mui/icons-material/QrCode'
 import SecurityIcon from '@mui/icons-material/Security'
 
 import { useAuth } from '../context/AuthContext'
+import { ROLE_LABELS } from '../auth/permissions'
 import { reconfigureMfaInit, verifyMfaSetup } from '../api/auth'
 import MfaQrCard from './MfaQrCard'
 import MfaCodeInput from './MfaCodeInput'
@@ -61,6 +62,7 @@ export default function AppLayout({ children }) {
   const [modalSuccess, setModalSuccess] = useState(false)
 
   const drawerWidth = open ? DRAWER_FULL : DRAWER_MINI
+  const displayName = user?.full_name || user?.username
 
   const handleOpenUserMenu = (event) => {
     setAnchorEl(event.currentTarget)
@@ -166,10 +168,10 @@ export default function AppLayout({ children }) {
                       fontWeight: 700,
                     }}
                   >
-                    {user.username?.charAt(0).toUpperCase()}
+                    {displayName?.charAt(0).toUpperCase()}
                   </Avatar>
                   <Typography variant="body2" fontWeight={600} sx={{ display: { xs: 'none', md: 'block' } }}>
-                    {user.username}
+                    {displayName}
                   </Typography>
                 </Button>
               </Tooltip>
@@ -187,9 +189,23 @@ export default function AppLayout({ children }) {
               >
                 <Box sx={{ px: 2, py: 1.5 }}>
                   <Typography variant="subtitle2" fontWeight={700}>
-                    {user.username}
+                    {displayName}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary">
+                  {user.full_name && (
+                    <Typography variant="caption" color="text.secondary" component="div">
+                      @{user.username}
+                    </Typography>
+                  )}
+                  {user.role && (
+                    <Chip
+                      label={ROLE_LABELS[user.role] || user.role}
+                      size="small"
+                      color={user.role === 'admin' ? 'primary' : 'default'}
+                      variant="outlined"
+                      sx={{ mt: 0.75, mb: 0.5 }}
+                    />
+                  )}
+                  <Typography variant="caption" color="text.secondary" component="div">
                     Sesión protegida con 2FA
                   </Typography>
                 </Box>
