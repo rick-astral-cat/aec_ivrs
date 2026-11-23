@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   Alert, Box, Button, Chip, CircularProgress, IconButton, LinearProgress, Paper, Tooltip, Typography,
@@ -6,17 +6,28 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
-import { addMember, deleteProject, getProject, removeMember, updateMemberRole, updateProject } from '../api/projects'
+import {
+  addMember, createActivity, deleteActivity, deleteProject, getProject, removeMember,
+  setActivityCompleted, updateActivity, updateMemberRole, updateProject,
+} from '../api/projects'
+import { getAgencies } from '../api/agencies'
 import { displayName } from '../api/users'
+import { PERMISSIONS } from '../auth/permissions'
+import { useAuth } from '../context/AuthContext'
+import { usePermission } from '../hooks/usePermission'
+import ActivitiesPanel from '../components/projects/ActivitiesPanel'
+import ActivityDialog from '../components/projects/ActivityDialog'
 import AddMemberDialog from '../components/projects/AddMemberDialog'
 import MembersPanel from '../components/projects/MembersPanel'
 import ProjectFormDialog from '../components/projects/ProjectFormDialog'
 import { PROJECT_ROLE_LABELS, apiErrorMessage, progressPercent } from '../components/projects/projectUtils'
 
-// Detalle de un proyecto de Migración TEAMS: datos generales, avance e integrantes.
+// Detalle de un proyecto de Migración TEAMS: datos generales, avance, integrantes y actividades.
 export default function ProjectDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const canReadAgencies = usePermission(PERMISSIONS.AGENCIES_READ)
 
   const [project, setProject] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -24,6 +35,8 @@ export default function ProjectDetailPage() {
   const [actionError, setActionError] = useState(null)
   const [editOpen, setEditOpen] = useState(false)
   const [addMemberOpen, setAddMemberOpen] = useState(false)
+  const [activityDialog, setActivityDialog] = useState({ open: false, activity: null })
+  const [agencyTags, setAgencyTags] = useState([])
 
   const reload = useCallback(() => getProject(id).then((r) => setProject(r.data)), [id])
 
@@ -33,6 +46,20 @@ export default function ProjectDetailPage() {
       .catch((err) => setLoadError(apiErrorMessage(err, 'No se pudo cargar el proyecto.')))
       .finally(() => setLoading(false))
   }, [id])
+
+  // Siglas de agencias como sugerencias de pills (p. ej. "DHME").
+  useEffect(() => {
+    if (!canReadAgencies) return
+    getAgencies()
+      .then((r) => setAgencyTags(r.data.map((a) => a.abbreviation).filter(Boolean)))
+      .catch(() => {})
+  }, [canReadAgencies])
+
+  // Sugerencias: pills ya usadas en el proyecto primero, luego siglas de agencias.
+  const tagSuggestions = useMemo(() => {
+    const used = (project?.activities ?? []).flatMap((a) => a.tags)
+    return [...new Set([...used, ...[...agencyTags].sort()])]
+  }, [project, agencyTags])
 
   // Ejecuta una acción, recarga el proyecto y muestra un mensaje si falla.
   const runAction = async (action, fallback) => {
@@ -84,6 +111,26 @@ export default function ProjectDetailPage() {
     if (!confirm(`¿Quitar a ${displayName(member.user)} del proyecto? Sus actividades quedarán sin encargado.`)) return
     runAction(() => removeMember(id, member.id), 'No se pudo quitar al integrante.')
   }
+
+  const handleSaveActivity = (data) => {
+    const { activity } = activityDialog
+    const action = activity
+      ? () => updateActivity(id, activity.id, data)
+      : () => createActivity(id, data)
+    return submitOrThrow(action, 'No se pudo guardar la actividad.')
+      .then(() => setActivityDialog({ open: false, activity: null }))
+  }
+
+  const handleDeleteActivity = (activity) => {
+    if (!confirm(`¿Eliminar la actividad "${activity.title}"?`)) return
+    runAction(() => deleteActivity(id, activity.id), 'No se pudo eliminar la actividad.')
+  }
+
+  const handleToggleActivity = (activity) =>
+    runAction(
+      () => setActivityCompleted(id, activity.id, !activity.is_completed),
+      'No se pudo actualizar la actividad.',
+    )
 
   const backButton = (
     <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/teams-migration')} size="small">
@@ -152,12 +199,30 @@ export default function ProjectDetailPage() {
         onRemove={handleRemoveMember}
       />
 
+      <ActivitiesPanel
+        activities={project.activities}
+        canManage={canManage}
+        currentUserId={user?.id}
+        onAdd={() => setActivityDialog({ open: true, activity: null })}
+        onEdit={(activity) => setActivityDialog({ open: true, activity })}
+        onDelete={handleDeleteActivity}
+        onToggle={handleToggleActivity}
+      />
+
       <ProjectFormDialog
         open={editOpen}
         title="Editar proyecto"
         initial={project}
         onSubmit={handleEdit}
         onClose={() => setEditOpen(false)}
+      />
+      <ActivityDialog
+        open={activityDialog.open}
+        activity={activityDialog.activity}
+        members={project.members}
+        tagSuggestions={tagSuggestions}
+        onSubmit={handleSaveActivity}
+        onClose={() => setActivityDialog({ open: false, activity: null })}
       />
       <AddMemberDialog
         open={addMemberOpen}
