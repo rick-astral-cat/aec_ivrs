@@ -10,6 +10,7 @@ from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 
 from database import engine
+from roles import Role
 from services import user_service
 
 logger = logging.getLogger("aec_ivrs.bootstrap")
@@ -55,7 +56,7 @@ def ensure_default_admin(db: Session) -> None:
 
     default_user = os.getenv("DEFAULT_ADMIN_USER", "admin")
     default_pass = os.getenv("DEFAULT_ADMIN_PASSWORD", "Dalton2026!")
-    user_service.create_user(db, username=default_user, password=default_pass)
+    user_service.create_user(db, username=default_user, password=default_pass, role=Role.ADMIN)
     logger.info(
         "Initial administrator account created: '%s'. "
         "MFA will be configured via QR on first login.",
