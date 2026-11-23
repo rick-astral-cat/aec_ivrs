@@ -55,6 +55,13 @@ export function AuthProvider({ children }) {
     }
   }, [token, logout])
 
+  // Permisos otorgados por el rol del usuario (vienen de /api/auth/me).
+  // Solo sirven para ocultar acciones en la UI; el backend autoriza cada petición.
+  const hasPermission = useCallback(
+    (permission) => Boolean(user?.permissions?.includes(permission)),
+    [user],
+  )
+
   const value = {
     user,
     token,
@@ -63,6 +70,7 @@ export function AuthProvider({ children }) {
     handleLoginSuccess,
     logout,
     refreshUser,
+    hasPermission,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
