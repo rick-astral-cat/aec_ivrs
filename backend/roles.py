@@ -17,3 +17,10 @@ class Role(str, Enum):
 
 # Role assigned to newly created users unless another one is requested.
 DEFAULT_ROLE = Role.VIEWER
+
+
+class ProjectRole(str, Enum):
+    """Role of a user inside a specific project (see project_members.role)."""
+
+    OWNER = "owner"    # Manages the project, its members and its activities.
+    MEMBER = "member"  # Sees the project and completes the activities assigned to them.
