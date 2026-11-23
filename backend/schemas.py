@@ -73,7 +73,19 @@ class TokenResponse(BaseModel):
 class UserOut(BaseModel):
     id: int
     username: str
+    full_name: Optional[str] = None
+    role: str
     is_mfa_enabled: bool
     is_active: bool
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CurrentUserOut(UserOut):
+    """Authenticated user plus the permissions granted by their role.
+
+    The frontend uses ``permissions`` only to hide actions; the backend still
+    authorizes every request.
+    """
+
+    permissions: list[str]
