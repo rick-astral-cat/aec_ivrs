@@ -32,6 +32,12 @@ BACKUP_DIR="${BACKUP_DIR:-$APP_DIR/db_backups}"
 SERVICE="${SERVICE:-aec_ivrs.service}"
 DB_FILE="${DB_FILE:-ivrs.db}"
 
+# rsync flags: recursive, keep symlinks and file mtimes. Directory times and
+# permissions are NOT synced: production directories are owned by www-data and
+# the deploy user cannot change their attributes (rsync would exit with code 23).
+# Existing files keep their production permissions.
+RSYNC_OPTS=(-rlt --omit-dir-times --no-perms --itemize-changes)
+
 # Never copied from the repo and never deleted in production.
 RSYNC_EXCLUDES=(
   --exclude ".env"
@@ -60,6 +66,7 @@ die()  { printf '\033[1;31mERR\033[0m %s\n' "$*" >&2; exit 1; }
 
 BACKUP_FILE=""
 SERVICE_STOPPED=false
+MIGRATIONS_STARTED=false
 
 on_error() {
   local line="$1"
@@ -67,10 +74,13 @@ on_error() {
   if [[ "$SERVICE_STOPPED" == true ]]; then
     echo "The service '$SERVICE' is STOPPED." >&2
   fi
-  if [[ -n "$BACKUP_FILE" ]]; then
-    echo "Database backup: $BACKUP_FILE" >&2
-    echo "To restore it:   cp \"$BACKUP_FILE\" \"$DEST_DIR/$DB_FILE\" && sudo systemctl start $SERVICE" >&2
+  if [[ "$MIGRATIONS_STARTED" == true && -n "$BACKUP_FILE" ]]; then
+    echo "Migrations may have changed the database. Backup: $BACKUP_FILE" >&2
+    echo "To restore it: cp \"$BACKUP_FILE\" \"$DEST_DIR/$DB_FILE\"" >&2
+  else
+    echo "The database was not modified (backup kept at: ${BACKUP_FILE:-none})." >&2
   fi
+  echo "Fix the error and run the script again; it is safe to re-run." >&2
 }
 trap 'on_error $LINENO' ERR
 
@@ -95,7 +105,7 @@ fi
 # --- Dry run ----------------------------------------------------------------
 if [[ "$DRY_RUN" == true ]]; then
   info "Dry run: files that would change (nothing is modified):"
-  rsync -rltp --delete --itemize-changes --dry-run "${RSYNC_EXCLUDES[@]}" "$SRC_DIR/" "$DEST_DIR/"
+  rsync "${RSYNC_OPTS[@]}" --delete --dry-run "${RSYNC_EXCLUDES[@]}" "$SRC_DIR/" "$DEST_DIR/"
   exit 0
 fi
 
@@ -122,7 +132,7 @@ fi
 
 # --- 3. Sync code -----------------------------------------------------------
 info "Syncing code"
-rsync -rltp --delete --itemize-changes "${RSYNC_EXCLUDES[@]}" "$SRC_DIR/" "$DEST_DIR/"
+rsync "${RSYNC_OPTS[@]}" --delete "${RSYNC_EXCLUDES[@]}" "$SRC_DIR/" "$DEST_DIR/"
 ok "Code synced"
 
 # --- 4. Dependencies --------------------------------------------------------
@@ -134,6 +144,7 @@ ok "Dependencies installed"
 # Same routine the service runs on startup; running it here makes a failing
 # migration visible before the service is started.
 info "Applying database migrations"
+MIGRATIONS_STARTED=true
 (cd "$DEST_DIR" && .venv/bin/python -c "from bootstrap import run_migrations; run_migrations()")
 ok "Migrations applied"
 
