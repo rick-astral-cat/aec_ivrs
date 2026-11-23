@@ -1,7 +1,9 @@
-from pydantic import BaseModel, ConfigDict, field_validator
+from datetime import datetime
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from typing import Optional, Any
 
 import ivr_schema
+from roles import ProjectRole
 
 
 class AgencyBase(BaseModel):
@@ -89,3 +91,149 @@ class CurrentUserOut(UserOut):
     """
 
     permissions: list[str]
+
+
+# --- Teams migration projects ---
+
+MAX_TAGS = 20
+MAX_TAG_LENGTH = 40
+
+
+def _normalize_tags(tags: list[str]) -> list[str]:
+    """Trim tags, collapse inner spaces, drop empties and case-insensitive duplicates."""
+    result: list[str] = []
+    seen: set[str] = set()
+    for raw in tags:
+        tag = " ".join(str(raw).split())
+        if not tag:
+            continue
+        if len(tag) > MAX_TAG_LENGTH:
+            raise ValueError(f"Each tag must be at most {MAX_TAG_LENGTH} characters")
+        if tag.lower() not in seen:
+            seen.add(tag.lower())
+            result.append(tag)
+    if len(result) > MAX_TAGS:
+        raise ValueError(f"At most {MAX_TAGS} tags are allowed")
+    return result
+
+
+def _clean_required_text(value: Optional[str]) -> Optional[str]:
+    # None only reaches here on partial updates, where it means "no change".
+    if value is None:
+        return None
+    value = value.strip()
+    if not value:
+        raise ValueError("Must not be empty")
+    return value
+
+
+def _clean_optional_text(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    value = value.strip()
+    return value or None
+
+
+class UserSummary(BaseModel):
+    """Public subset of a user, safe to show to any authenticated user."""
+
+    id: int
+    username: str
+    full_name: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProjectCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+
+    _clean_name = field_validator("name")(_clean_required_text)
+    _clean_description = field_validator("description")(_clean_optional_text)
+
+
+class ProjectUpdate(BaseModel):
+    """Partial update (PATCH): only the fields sent are changed."""
+
+    name: Optional[str] = None
+    description: Optional[str] = None
+
+    _clean_name = field_validator("name")(_clean_required_text)
+    _clean_description = field_validator("description")(_clean_optional_text)
+
+
+class MemberCreate(BaseModel):
+    user_id: int
+    role: ProjectRole = ProjectRole.MEMBER
+
+
+class MemberUpdate(BaseModel):
+    role: ProjectRole
+
+
+class MemberOut(BaseModel):
+    id: int
+    role: ProjectRole
+    user: UserSummary
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ActivityCreate(BaseModel):
+    title: str
+    assignee_id: Optional[int] = None
+    tags: list[str] = Field(default_factory=list)
+
+    _clean_title = field_validator("title")(_clean_required_text)
+    _clean_tags = field_validator("tags")(_normalize_tags)
+
+
+class ActivityUpdate(BaseModel):
+    """Partial update (PATCH). Send ``assignee_id: null`` to unassign."""
+
+    title: Optional[str] = None
+    assignee_id: Optional[int] = None
+    tags: Optional[list[str]] = None
+    is_completed: Optional[bool] = None
+    position: Optional[int] = Field(default=None, ge=0)
+
+    _clean_title = field_validator("title")(_clean_required_text)
+
+    @field_validator("tags")
+    @classmethod
+    def _clean_tags(cls, value: Optional[list[str]]) -> Optional[list[str]]:
+        return None if value is None else _normalize_tags(value)
+
+
+class ActivityOut(BaseModel):
+    id: int
+    title: str
+    assignee: Optional[UserSummary] = None
+    tags: list[str]
+    is_completed: bool
+    completed_at: Optional[datetime] = None
+    completed_by: Optional[UserSummary] = None
+    position: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProjectSummaryOut(BaseModel):
+    """Card shown in the projects grid."""
+
+    id: int
+    name: str
+    description: Optional[str] = None
+    activity_count: int
+    completed_count: int
+    members: list[MemberOut]
+    my_role: Optional[ProjectRole] = None  # None when seen through projects:view_all
+    created_at: datetime
+    updated_at: datetime
+
+
+class ProjectDetailOut(ProjectSummaryOut):
+    created_by: Optional[UserSummary] = None
+    activities: list[ActivityOut]
+    can_manage: bool  # Whether the current user can edit the project, members and activities
