@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 import auth
 import models
+import permissions
 import schemas
 from database import get_db
 from services import user_service
@@ -131,10 +132,14 @@ def verify_mfa_login(payload: schemas.MFAVerifyLoginRequest, db: Session = Depen
     )
 
 
-@router.get("/me", response_model=schemas.UserOut)
+@router.get("/me", response_model=schemas.CurrentUserOut)
 def get_current_authenticated_user(current_user: models.User = Depends(auth.get_current_user)):
-    """Return the currently authenticated user's information."""
-    return current_user
+    """Return the current user's information, role and granted permissions."""
+    granted = sorted(p.value for p in permissions.permissions_for(current_user.role))
+    return schemas.CurrentUserOut(
+        **schemas.UserOut.model_validate(current_user).model_dump(),
+        permissions=granted,
+    )
 
 
 @router.post("/mfa/reconfigure-init", response_model=schemas.LoginResponse)
