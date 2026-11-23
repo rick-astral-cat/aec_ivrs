@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, Boolean, JSON
 from database import Base
+from roles import DEFAULT_ROLE
 
 
 class User(Base):
@@ -11,6 +12,9 @@ class User(Base):
     totp_secret = Column(String, nullable=True)          # Secreto base32 para TOTP (Google Auth)
     is_mfa_enabled = Column(Boolean, default=False)      # True una vez confirmado el primer código QR
     is_active = Column(Boolean, default=True)
+    # Global role (see roles.Role). Stored as plain text to keep SQLite simple.
+    role = Column(String, nullable=False, default=DEFAULT_ROLE.value, server_default=DEFAULT_ROLE.value)
+    full_name = Column(String, nullable=True)            # Display name, e.g. "Ricardo Ríos"
 
 
 class Agency(Base):

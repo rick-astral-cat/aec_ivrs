@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 import auth
 import models
+from roles import DEFAULT_ROLE, Role
 
 
 def get_by_id(db: Session, user_id: int) -> Optional[models.User]:
@@ -25,13 +26,21 @@ def count_users(db: Session) -> int:
     return db.query(models.User).count()
 
 
-def create_user(db: Session, username: str, password: str) -> models.User:
+def create_user(
+    db: Session,
+    username: str,
+    password: str,
+    role: Role = DEFAULT_ROLE,
+    full_name: Optional[str] = None,
+) -> models.User:
     """Create a new user with a hashed password and MFA pending enrollment."""
     user = models.User(
         username=username.strip(),
         hashed_password=auth.hash_password(password),
         is_mfa_enabled=False,
         is_active=True,
+        role=Role(role).value,
+        full_name=full_name.strip() if full_name else None,
     )
     db.add(user)
     db.commit()
