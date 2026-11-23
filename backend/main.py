@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import config  # noqa: F401  # Loads .env and validates settings at import time.
 from bootstrap import ensure_default_admin, run_migrations
 from database import session_scope
-from routers import agencies, auth as auth_router
+from routers import agencies, auth as auth_router, projects, users
 
 # Configure application logging. A basic console handler is enough for now and
 # gives us a single place to raise the level or attach file/remote handlers when
@@ -58,3 +58,5 @@ app.add_middleware(
 # routing data requests to /api/agencies/{id}.
 app.include_router(auth_router.router)
 app.include_router(agencies.router)
+app.include_router(projects.router)
+app.include_router(users.router)
