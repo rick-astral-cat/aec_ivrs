@@ -59,3 +59,15 @@ def reset_mfa(db: Session, user: models.User) -> None:
     user.is_mfa_enabled = False
     user.totp_secret = None
     db.commit()
+
+
+def set_role(db: Session, user: models.User, role: Role) -> None:
+    """Change a user's global role."""
+    user.role = Role(role).value
+    db.commit()
+
+
+def set_full_name(db: Session, user: models.User, full_name: Optional[str]) -> None:
+    """Set (or clear, with an empty value) a user's display name."""
+    user.full_name = full_name.strip() if full_name and full_name.strip() else None
+    db.commit()
