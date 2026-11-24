@@ -34,6 +34,7 @@ Además incluye el módulo **Migración TEAMS**: proyectos con integrantes, acti
 | **React** | 19 | UI framework |
 | **Vite** | 8 | Build tool |
 | **MUI (Material UI)** | 9 | Componentes UI y sistema de diseño |
+| **MUI X Data Grid** | 9 (Community, MIT) | Tabla de agencias con búsqueda, filtros y paginación |
 | **React Router DOM** | 7 | Navegación SPA |
 | **@xyflow/react** | latest | Editor visual de nodos drag-and-drop para el IVR |
 | **Mermaid.js** | latest | Generación y exportación de diagramas de flujo |
@@ -68,8 +69,11 @@ aec_ivrs/
 │   │   └── project_access.py   # Project-level access rules (view/manage/complete)
 │   ├── migrations/      # Alembic migrations (versions/0001_..., 0002_..., 0003_...)
 │   ├── alembic.ini      # Alembic configuration
+│   ├── tests/           # pytest suite (in-memory SQLite, see "Tests")
+│   ├── pytest.ini
 │   ├── .env.example     # Template for environment variables
-│   └── requirements.txt
+│   ├── requirements.txt
+│   └── requirements-dev.txt  # requirements.txt + pytest (not installed in production)
 └── frontend/
     └── src/
         ├── api/
@@ -85,6 +89,7 @@ aec_ivrs/
         ├── components/
         │   ├── AppLayout.jsx    # Shell MUI: menú lateral, usuario, rol y logout
         │   ├── TeamsIcon.jsx    # Icono propio inspirado en Microsoft Teams
+        │   ├── agencies/        # Lógica pura del grid de agencias (+ tests Vitest)
         │   ├── projects/        # Tarjetas, integrantes, actividades y diálogos de proyectos
         │   ├── MfaCodeInput.jsx # Input numérico de 6 dígitos
         │   ├── MfaQrCard.jsx    # Card con visualizador de QR y clave manual
@@ -96,7 +101,7 @@ aec_ivrs/
         │   └── AuthContext.jsx  # Proveedor de estado de autenticación
         ├── pages/
         │   ├── LoginPage.jsx    # Vista de login con paso MFA/QR
-        │   ├── AgenciesPage.jsx
+        │   ├── AgenciesPage.jsx      # DataGrid de agencias (búsqueda, filtros, paginación)
         │   ├── AgencyDetailPage.jsx
         │   ├── ProjectsPage.jsx      # Grid de proyectos (Migración TEAMS)
         │   └── ProjectDetailPage.jsx # Detalle: datos, integrantes y actividades
@@ -221,6 +226,29 @@ El campo `ivr` de cada agencia almacena un árbol de nodos. Tipos de nodo:
 | `voicemail` | Desvío a buzón de voz |
 | `cadd` | Redirección a CADD con número destino |
 
+El árbol se valida (`ivr_schema.validate_ivr`) solo al **crear o actualizar** una agencia; las respuestas lo devuelven tal como está guardado.
+
+---
+
+## Listado de agencias
+
+`GET /api/agencies` devuelve un **resumen** de cada agencia, sin el árbol IVR, ordenado por nombre: `id`, `name`, `abbreviation`, `region`, `phone_ranges`, `has_schedule`, `business_hours`, `after_hours_mailbox` y `has_ivr`. El IVR completo se obtiene con `GET /api/agencies/{id}`.
+
+- El árbol IVR era cerca del 97% de la respuesta del listado (con 22 agencias, unos 98 KB contra 5 KB ahora). La consulta pide solo las columnas del resumen, así que SQLite no lee el JSON del IVR.
+- `has_ivr` lo calcula SQLite: es `true` solo si el IVR es una lista con al menos un nodo (`NULL`, `null` y `[]` cuentan como "Sin IVR").
+- Quien necesite el IVR (por ejemplo, **Copiar agencia**) debe pedir el detalle primero.
+
+En el frontend (`AgenciesPage`), el listado se muestra con el **DataGrid** de MUI X. La búsqueda, los filtros, el orden y la paginación ocurren en el navegador, sin peticiones adicionales al servidor:
+
+- Búsqueda rápida en las columnas visibles (nombre, siglas, región, rangos, horario e IVR).
+- Filtros por columna. Región, Horario (con horario / horario incompleto / sin horario) e IVR se filtran por valor.
+- Paginación de 10, 25, 50 o 100 filas, columnas que se pueden ocultar (el buzón fuera de horario está oculto por defecto) y exportación a CSV.
+- Búsqueda, filtros, orden y página se conservan en `sessionStorage` al abrir el detalle de una agencia y volver.
+
+Si el número de agencias llegara a varios miles, conviene cambiar a paginación en el servidor (`paginationMode="server"` con parámetros en el endpoint).
+
+**nginx:** para comprimir las respuestas JSON del API, verifica que la configuración incluya `gzip on;` y `gzip_types application/json;`. Con gzip, el listado de 22 agencias pesa menos de 1 KB.
+
 ---
 
 ## Cómo correr el proyecto
@@ -237,6 +265,23 @@ uvicorn main:app --reload    # http://localhost:8000
 cd frontend
 npm run dev                  # http://localhost:5173
 ```
+
+---
+
+## Tests
+
+```bash
+# Backend (pytest): base SQLite en memoria; no toca ivrs.db ni ejecuta migraciones
+cd backend
+pip install -r requirements-dev.txt
+python -m pytest
+
+# Frontend (Vitest): lógica pura, sin navegador
+cd frontend
+npm test
+```
+
+En producción solo se instala `requirements.txt`; pytest no llega al servidor.
 
 ---
 
