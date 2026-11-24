@@ -277,6 +277,9 @@ export default function AppLayout({ children }) {
         component="main"
         sx={{
           flexGrow: 1,
+          // Sin esto, el contenido ancho (p. ej. el DataGrid) estira el main
+          // más allá de la ventana en lugar de hacer scroll dentro de su caja.
+          minWidth: 0,
           mt: '48px',
           p: 3,
           transition: 'margin 0.2s',
