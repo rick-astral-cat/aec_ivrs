@@ -6,9 +6,11 @@ import {
 import AddTaskIcon from '@mui/icons-material/AddTask'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
+import ScheduleIcon from '@mui/icons-material/Schedule'
+import TaskAltIcon from '@mui/icons-material/TaskAlt'
 import { displayName } from '../../api/users'
 import { TEAMS_COLOR } from '../TeamsIcon'
-import { initials } from './projectUtils'
+import { completedLate, dueStatus, formatDateOnly, formatDateTime, initials } from './projectUtils'
 
 const STATUS_FILTERS = [
   { value: 'all', label: 'Todas' },
@@ -16,10 +18,12 @@ const STATUS_FILTERS = [
   { value: 'done', label: 'Completadas' },
 ]
 
-const formatDate = (iso) =>
-  iso ? new Date(iso.endsWith('Z') || iso.includes('+') ? iso : `${iso}Z`).toLocaleString('es-MX', {
-    dateStyle: 'medium', timeStyle: 'short',
-  }) : ''
+// Apariencia del chip de fecha propuesta según su estado.
+const DUE_STYLES = {
+  overdue: { color: 'error', variant: 'filled', prefix: 'Vencida · ' },
+  today: { color: 'warning', variant: 'filled', prefix: 'Hoy · ' },
+  upcoming: { color: 'default', variant: 'outlined', prefix: 'Para el ' },
+}
 
 // Lista de actividades del proyecto con filtros, checkbox de completado,
 // encargado y pills. Los líderes pueden agregar, editar y eliminar; el encargado
@@ -108,8 +112,13 @@ export default function ActivitiesPanel({
 }
 
 function ActivityRow({ activity, canManage, canToggle, onEdit, onDelete, onToggle }) {
-  const { title, tags, is_completed: completed, assignee, completed_by: completedBy, completed_at: completedAt } = activity
+  const {
+    title, tags, due_date: dueDate, is_completed: completed,
+    assignee, completed_by: completedBy, completed_at: completedAt,
+  } = activity
   const assigneeName = assignee ? displayName(assignee) : null
+  const dueStyle = DUE_STYLES[dueStatus(dueDate, completed)] ?? DUE_STYLES.upcoming
+  const late = completed && completedLate(dueDate, completedAt)
 
   const checkbox = (
     <Checkbox
@@ -126,7 +135,7 @@ function ActivityRow({ activity, canManage, canToggle, onEdit, onDelete, onToggl
       <Tooltip
         title={
           completed
-            ? `Completada${completedBy ? ` por ${displayName(completedBy)}` : ''}${completedAt ? ` · ${formatDate(completedAt)}` : ''}`
+            ? `Completada${completedBy ? ` por ${displayName(completedBy)}` : ''}${completedAt ? ` · ${formatDateTime(completedAt)}` : ''}`
             : canToggle ? 'Marcar como completada' : 'Solo el encargado o un líder puede completarla'
         }
       >
@@ -153,6 +162,31 @@ function ActivityRow({ activity, canManage, canToggle, onEdit, onDelete, onToggl
             />
           ) : (
             <Chip size="small" variant="outlined" label="Sin encargado" sx={{ fontStyle: 'italic' }} />
+          )}
+          {dueDate && (
+            <Tooltip title="Fecha propuesta (la define un líder)">
+              <Chip
+                size="small"
+                icon={<ScheduleIcon />}
+                color={completed ? 'default' : dueStyle.color}
+                variant={completed ? 'outlined' : dueStyle.variant}
+                label={`${completed ? 'Para el ' : dueStyle.prefix}${formatDateOnly(dueDate)}`}
+              />
+            </Tooltip>
+          )}
+          {completed && completedAt && (
+            <Tooltip
+              title={`Última vez marcada como completada${completedBy ? ` por ${displayName(completedBy)}` : ''}` +
+                (late ? ' · después de la fecha propuesta' : '')}
+            >
+              <Chip
+                size="small"
+                icon={<TaskAltIcon />}
+                color={late ? 'warning' : 'success'}
+                variant="outlined"
+                label={`Completada ${formatDateTime(completedAt)}`}
+              />
+            </Tooltip>
           )}
           {tags.map((tag) => (
             <Chip key={tag} size="small" label={tag} color="primary" variant="outlined" />
