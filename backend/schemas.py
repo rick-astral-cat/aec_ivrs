@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from typing import Optional, Any
 
@@ -204,17 +204,20 @@ class ActivityCreate(BaseModel):
     title: str
     assignee_id: Optional[int] = None
     tags: list[str] = Field(default_factory=list)
+    due_date: Optional[date] = None
 
     _clean_title = field_validator("title")(_clean_required_text)
     _clean_tags = field_validator("tags")(_normalize_tags)
 
 
 class ActivityUpdate(BaseModel):
-    """Partial update (PATCH). Send ``assignee_id: null`` to unassign."""
+    """Partial update (PATCH). Send ``assignee_id: null`` to unassign and
+    ``due_date: null`` to clear the due date."""
 
     title: Optional[str] = None
     assignee_id: Optional[int] = None
     tags: Optional[list[str]] = None
+    due_date: Optional[date] = None
     is_completed: Optional[bool] = None
     position: Optional[int] = Field(default=None, ge=0)
 
@@ -231,6 +234,7 @@ class ActivityOut(BaseModel):
     title: str
     assignee: Optional[UserSummary] = None
     tags: list[str]
+    due_date: Optional[date] = None
     is_completed: bool
     completed_at: Optional[datetime] = None
     completed_by: Optional[UserSummary] = None

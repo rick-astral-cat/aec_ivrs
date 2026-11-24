@@ -169,6 +169,7 @@ def create_activity(db: Session, project: models.Project, payload: schemas.Activ
         title=payload.title,
         assignee=_resolve_assignee(project, payload.assignee_id),
         tags=payload.tags,
+        due_date=payload.due_date,
         position=(max_position + 1) if max_position is not None else 0,
     )
     project.activities.append(activity)
@@ -184,7 +185,11 @@ def update_activity(
     payload: schemas.ActivityUpdate,
     actor: models.User,
 ) -> models.Activity:
-    """Apply a partial update. Completing records who and when; reopening clears it."""
+    """Apply a partial update.
+
+    Completing records who and when (so ``completed_at`` is always the last time
+    it was marked done); reopening clears both, e.g. after a mistaken check.
+    """
     data = payload.model_dump(exclude_unset=True)
     if data.get("title") is not None:
         activity.title = data["title"]
@@ -192,6 +197,8 @@ def update_activity(
         activity.assignee = _resolve_assignee(project, data["assignee_id"])
     if data.get("tags") is not None:
         activity.tags = data["tags"]
+    if "due_date" in data:
+        activity.due_date = data["due_date"]
     if data.get("position") is not None:
         activity.position = data["position"]
     if data.get("is_completed") is not None and data["is_completed"] != activity.is_completed:

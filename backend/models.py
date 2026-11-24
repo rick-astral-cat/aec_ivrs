@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from sqlalchemy import (
-    JSON, Boolean, Column, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint,
+    JSON, Boolean, Column, Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 
@@ -113,7 +113,10 @@ class Activity(Base):
         nullable=True, index=True,
     )
     tags = Column(JSON, nullable=False, default=list)       # e.g. ["DHME", "Honda"]
+    # Proposed due date (date only). Only project owners can set or change it.
+    due_date = Column(Date, nullable=True)
     is_completed = Column(Boolean, nullable=False, default=False, server_default="0")
+    # Last time the activity was marked completed (cleared when reopened).
     completed_at = Column(DateTime(timezone=True), nullable=True)
     completed_by_id = Column(
         Integer, ForeignKey("users.id", name="fk_activities_completed_by_id_users", ondelete="SET NULL"),
