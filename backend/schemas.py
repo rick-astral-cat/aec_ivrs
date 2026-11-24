@@ -6,7 +6,9 @@ import ivr_schema
 from roles import ProjectRole
 
 
-class AgencyBase(BaseModel):
+class AgencyFields(BaseModel):
+    """Scalar agency fields shared by every agency schema (no IVR tree)."""
+
     name: str
     abbreviation: str
     region: str
@@ -14,7 +16,14 @@ class AgencyBase(BaseModel):
     has_schedule: bool = False
     business_hours: Optional[str] = None
     after_hours_mailbox: Optional[str] = None
+
+
+class AgencyBase(AgencyFields):
     ivr: Optional[Any] = None
+
+
+class AgencyIn(AgencyBase):
+    """Agency payload received from clients; the IVR tree is validated here."""
 
     @field_validator("ivr")
     @classmethod
@@ -23,17 +32,29 @@ class AgencyBase(BaseModel):
         return ivr_schema.validate_ivr(value)
 
 
-class AgencyCreate(AgencyBase):
+class AgencyCreate(AgencyIn):
     pass
 
 
-class AgencyUpdate(AgencyBase):
+class AgencyUpdate(AgencyIn):
     # Full-replacement (PUT) semantics: all fields are required, same as create.
     pass
 
 
 class AgencyOut(AgencyBase):
+    """Full agency, IVR tree included. It was validated when it was written,
+    so responses do not validate it again."""
+
     id: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AgencySummaryOut(AgencyFields):
+    """Agency row for the list endpoint: no IVR tree, only whether it has one."""
+
+    id: int
+    has_ivr: bool
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -23,12 +23,15 @@ router = APIRouter(
 
 
 @router.get(
-    "", response_model=list[schemas.AgencyOut],
+    "", response_model=list[schemas.AgencySummaryOut],
     dependencies=[Depends(require_permission(Permission.AGENCIES_READ))],
 )
 def list_agencies(db: Session = Depends(get_db)):
-    """Return all agencies."""
-    return agency_service.list_agencies(db)
+    """Return all agencies as lightweight summaries (no IVR tree).
+
+    Use ``GET /api/agencies/{id}`` to get an agency with its IVR.
+    """
+    return agency_service.list_agency_summaries(db)
 
 
 @router.post(
