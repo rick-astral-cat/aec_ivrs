@@ -115,30 +115,41 @@ La aplicación implementa protección completa mediante **JWT** y **MFA basado e
 - **Contraseña:** `Dalton2026!`
 *(Al primer inicio de sesión se le solicitará escanear el código QR con una app Authenticator).*
 
-### Gestión de usuarios en servidor (CLI):
+### Gestión de usuarios (CLI `manage_users.py`)
 
-Para producción en AWS no es necesario realizar consultas SQL manuales. Se incluye la herramienta CLI `manage_users.py`:
+No hay pantalla de usuarios: se administran con el CLI `backend/manage_users.py`, sin consultas SQL manuales. Antes de ejecutar cualquier comando aplica las migraciones pendientes.
+
+**Cómo ejecutarlo**
 
 ```bash
-# Listar usuarios registrados con nombre, rol y estado MFA
-python manage_users.py list
+# Producción (servidor AWS): desde el directorio productivo y con su virtualenv
+cd /var/www/html/aec_ivrs/backend
+.venv/bin/python manage_users.py list
 
-# Crear un nuevo usuario (rol por defecto: viewer)
-python manage_users.py create --username rgarcia --password MiPasswordSeguro123! \
-    --role editor --full-name "Ricardo García"
-
-# Cambiar el rol global de un usuario (admin | editor | viewer)
-python manage_users.py set-role --username rgarcia --role admin
-
-# Poner el nombre que se muestra en la app (texto vacío lo borra)
-python manage_users.py set-name --username rgarcia --full-name "Ricardo García"
-
-# Resetear MFA si un usuario pierde su teléfono (le mostrará un nuevo QR al iniciar sesión)
-python manage_users.py reset-mfa --username admin
-
-# Cambiar contraseña de un usuario
-python manage_users.py change-password --username admin --password NuevaPassword123!
+# Desarrollo (Windows, PowerShell)
+cd backend
+.\.venv\Scripts\python.exe manage_users.py list
 ```
+
+Ejecútalo siempre desde `backend/`: la base de datos (`./ivrs.db`) se busca en el directorio actual.
+
+**Tareas comunes** (en producción antepón `.venv/bin/python` en lugar de `python`):
+
+| Tarea | Comando |
+|---|---|
+| Ver usuarios con nombre, rol y MFA | `python manage_users.py list` |
+| Crear usuario | `python manage_users.py create --username rgarcia --password 'Temporal123!' --role editor --full-name "Ricardo García"` |
+| Cambiar nombre visible | `python manage_users.py set-name --username rgarcia --full-name "Ricardo García"` |
+| Borrar nombre visible | `python manage_users.py set-name --username rgarcia --full-name ""` |
+| Cambiar rol (`admin` \| `editor` \| `viewer`) | `python manage_users.py set-role --username rgarcia --role editor` |
+| Nuevo QR de MFA (cambió o perdió su teléfono) | `python manage_users.py reset-mfa --username rgarcia` |
+| Cambiar contraseña | `python manage_users.py change-password --username rgarcia --password 'NuevaClave123!'` |
+
+- El **nombre visible** (`full_name`) es el que aparece en el menú de usuario, las pills de integrantes y los encargados de actividades; si está vacío se muestra el `username`.
+- Los cambios de **nombre y rol** se aplican al recargar la página; no hace falta volver a iniciar sesión.
+- Un usuario nuevo se crea como `viewer` si no se indica `--role`, y escanea su QR de MFA en el primer inicio de sesión.
+- En bash, escribe las contraseñas entre **comillas simples** (`'...'`): con comillas dobles, un `!` puede interpretarse como comando del historial.
+- `python manage_users.py <comando> --help` muestra las opciones de cada comando.
 
 ### Variables de entorno recomendadas para producción en AWS:
 | Variable | Descripción | Valor por defecto |
