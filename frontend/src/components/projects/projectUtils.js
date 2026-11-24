@@ -33,6 +33,11 @@ export function apiErrorMessage(error, fallback) {
   return fallback
 }
 
+// Clave para comparar un pill con las siglas de una agencia ("dhme " -> "DHME").
+export function tagKey(tag) {
+  return (tag || '').trim().toUpperCase()
+}
+
 // --- Fechas de actividades ---
 
 // Fecha sin hora 'YYYY-MM-DD' -> Date local (evita el desfase de zona horaria de new Date('YYYY-MM-DD')).

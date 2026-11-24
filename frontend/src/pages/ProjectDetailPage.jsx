@@ -21,7 +21,7 @@ import ActivityDialog from '../components/projects/ActivityDialog'
 import AddMemberDialog from '../components/projects/AddMemberDialog'
 import MembersPanel from '../components/projects/MembersPanel'
 import ProjectFormDialog from '../components/projects/ProjectFormDialog'
-import { PROJECT_ROLE_LABELS, apiErrorMessage, progressPercent } from '../components/projects/projectUtils'
+import { PROJECT_ROLE_LABELS, apiErrorMessage, progressPercent, tagKey } from '../components/projects/projectUtils'
 
 // Detalle de un proyecto de Migración TEAMS: datos generales, avance, integrantes y actividades.
 export default function ProjectDetailPage() {
@@ -37,7 +37,7 @@ export default function ProjectDetailPage() {
   const [editOpen, setEditOpen] = useState(false)
   const [addMemberOpen, setAddMemberOpen] = useState(false)
   const [activityDialog, setActivityDialog] = useState({ open: false, activity: null })
-  const [agencyTags, setAgencyTags] = useState([])
+  const [agencies, setAgencies] = useState([])
 
   const reload = useCallback(() => getProject(id).then((r) => setProject(r.data)), [id])
 
@@ -48,19 +48,26 @@ export default function ProjectDetailPage() {
       .finally(() => setLoading(false))
   }, [id])
 
-  // Siglas de agencias como sugerencias de pills (p. ej. "DHME").
+  // Agencias: sus siglas se sugieren como pills (p. ej. "DHME") y los pills que
+  // coinciden con unas siglas muestran el nombre de la agencia y ligan a su IVR.
   useEffect(() => {
     if (!canReadAgencies) return
     getAgencies()
-      .then((r) => setAgencyTags(r.data.map((a) => a.abbreviation).filter(Boolean)))
+      .then((r) => setAgencies(r.data))
       .catch(() => {})
   }, [canReadAgencies])
+
+  const agenciesByTag = useMemo(
+    () => new Map(agencies.filter((a) => a.abbreviation).map((a) => [tagKey(a.abbreviation), a])),
+    [agencies],
+  )
 
   // Sugerencias: pills ya usadas en el proyecto primero, luego siglas de agencias.
   const tagSuggestions = useMemo(() => {
     const used = (project?.activities ?? []).flatMap((a) => a.tags)
-    return [...new Set([...used, ...[...agencyTags].sort()])]
-  }, [project, agencyTags])
+    const abbreviations = agencies.map((a) => a.abbreviation).filter(Boolean).sort()
+    return [...new Set([...used, ...abbreviations])]
+  }, [project, agencies])
 
   // Ejecuta una acción, recarga el proyecto y muestra un mensaje si falla.
   const runAction = async (action, fallback) => {
@@ -206,6 +213,7 @@ export default function ProjectDetailPage() {
         activities={project.activities}
         canManage={canManage}
         currentUserId={user?.id}
+        agenciesByTag={agenciesByTag}
         onAdd={() => setActivityDialog({ open: true, activity: null })}
         onEdit={(activity) => setActivityDialog({ open: true, activity })}
         onDelete={handleDeleteActivity}
