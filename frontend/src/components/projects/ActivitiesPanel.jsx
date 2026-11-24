@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Link as RouterLink } from 'react-router-dom'
 import {
   Avatar, Box, Button, Checkbox, Chip, Divider, FormControlLabel, IconButton, Paper, Switch,
   ToggleButton, ToggleButtonGroup, Tooltip, Typography,
@@ -8,9 +9,10 @@ import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import ScheduleIcon from '@mui/icons-material/Schedule'
 import TaskAltIcon from '@mui/icons-material/TaskAlt'
+import AccountTreeIcon from '@mui/icons-material/AccountTree'
 import { displayName } from '../../api/users'
 import { TEAMS_COLOR } from '../TeamsIcon'
-import { completedLate, dueStatus, formatDateOnly, formatDateTime, initials } from './projectUtils'
+import { completedLate, dueStatus, formatDateOnly, formatDateTime, initials, tagKey } from './projectUtils'
 
 const STATUS_FILTERS = [
   { value: 'all', label: 'Todas' },
@@ -29,7 +31,7 @@ const DUE_STYLES = {
 // encargado y pills. Los líderes pueden agregar, editar y eliminar; el encargado
 // solo puede marcar como completadas sus propias actividades.
 export default function ActivitiesPanel({
-  activities, canManage, currentUserId, onAdd, onEdit, onDelete, onToggle,
+  activities, canManage, currentUserId, agenciesByTag, onAdd, onEdit, onDelete, onToggle,
 }) {
   const [status, setStatus] = useState('all')
   const [onlyMine, setOnlyMine] = useState(false)
@@ -96,6 +98,7 @@ export default function ActivitiesPanel({
             <Box key={a.id}>
               {index > 0 && <Divider />}
               <ActivityRow
+                agenciesByTag={agenciesByTag}
                 activity={a}
                 canManage={canManage}
                 canToggle={canManage || a.assignee?.id === currentUserId}
@@ -111,7 +114,7 @@ export default function ActivitiesPanel({
   )
 }
 
-function ActivityRow({ activity, canManage, canToggle, onEdit, onDelete, onToggle }) {
+function ActivityRow({ activity, agenciesByTag, canManage, canToggle, onEdit, onDelete, onToggle }) {
   const {
     title, tags, due_date: dueDate, is_completed: completed,
     assignee, completed_by: completedBy, completed_at: completedAt,
@@ -189,7 +192,7 @@ function ActivityRow({ activity, canManage, canToggle, onEdit, onDelete, onToggl
             </Tooltip>
           )}
           {tags.map((tag) => (
-            <Chip key={tag} size="small" label={tag} color="primary" variant="outlined" />
+            <ActivityTag key={tag} tag={tag} agency={agenciesByTag?.get(tagKey(tag))} />
           ))}
         </Box>
       </Box>
@@ -205,5 +208,36 @@ function ActivityRow({ activity, canManage, canToggle, onEdit, onDelete, onToggl
         </Box>
       )}
     </Box>
+  )
+}
+
+// Pill de una actividad. Si coincide con las siglas de una agencia, muestra su
+// nombre al pasar el mouse y al hacer clic abre la agencia con su IVR.
+function ActivityTag({ tag, agency }) {
+  if (!agency) return <Chip size="small" label={tag} color="primary" variant="outlined" />
+
+  return (
+    <Tooltip
+      title={
+        <>
+          <Box component="span" sx={{ display: 'block', fontWeight: 600 }}>{agency.name}</Box>
+          {agency.region && <Box component="span" sx={{ display: 'block' }}>{agency.region}</Box>}
+          <Box component="span" sx={{ display: 'block', opacity: 0.8 }}>
+            {agency.has_ivr ? 'Clic para ver su IVR' : 'Sin IVR registrado · clic para ver la agencia'}
+          </Box>
+        </>
+      }
+    >
+      <Chip
+        size="small"
+        label={tag}
+        color="primary"
+        variant="outlined"
+        icon={<AccountTreeIcon />}
+        clickable
+        component={RouterLink}
+        to={`/agencies/${agency.id}`}
+      />
+    </Tooltip>
   )
 }
