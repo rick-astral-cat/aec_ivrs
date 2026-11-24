@@ -16,6 +16,7 @@ import { PERMISSIONS } from '../auth/permissions'
 import { useAuth } from '../context/AuthContext'
 import { usePermission } from '../hooks/usePermission'
 import ActivitiesPanel from '../components/projects/ActivitiesPanel'
+import ActivityStatsPanel from '../components/projects/ActivityStatsPanel'
 import ActivityDialog from '../components/projects/ActivityDialog'
 import AddMemberDialog from '../components/projects/AddMemberDialog'
 import MembersPanel from '../components/projects/MembersPanel'
@@ -198,6 +199,8 @@ export default function ProjectDetailPage() {
         onChangeRole={handleChangeRole}
         onRemove={handleRemoveMember}
       />
+
+      <ActivityStatsPanel members={project.members} activities={project.activities} />
 
       <ActivitiesPanel
         activities={project.activities}
