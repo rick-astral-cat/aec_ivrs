@@ -29,6 +29,7 @@ function ActivityForm({ activity, members, tagSuggestions, onSubmit, onClose }) 
   const [title, setTitle] = useState(activity?.title ?? '')
   const [assigneeId, setAssigneeId] = useState(activity?.assignee?.id ?? '')
   const [tags, setTags] = useState(activity?.tags ?? [])
+  const [dueDate, setDueDate] = useState(activity?.due_date ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
 
@@ -42,6 +43,7 @@ function ActivityForm({ activity, members, tagSuggestions, onSubmit, onClose }) 
         title: title.trim(),
         assignee_id: assigneeId === '' ? null : assigneeId,
         tags,
+        due_date: dueDate || null,
       })
     } catch (err) {
       setError(err?.message || 'No se pudo guardar la actividad.')
@@ -76,6 +78,15 @@ function ActivityForm({ activity, members, tagSuggestions, onSubmit, onClose }) 
             <MenuItem key={m.user.id} value={m.user.id}>{displayName(m.user)}</MenuItem>
           ))}
         </TextField>
+        <TextField
+          type="date"
+          label="Fecha propuesta"
+          value={dueDate}
+          onChange={(e) => setDueDate(e.target.value)}
+          fullWidth
+          slotProps={{ inputLabel: { shrink: true } }}
+          helperText="Opcional. Solo los líderes del proyecto pueden definirla o cambiarla."
+        />
         <Autocomplete
           multiple
           freeSolo
