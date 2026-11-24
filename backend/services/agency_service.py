@@ -6,17 +6,40 @@ or background jobs). They do not raise HTTP errors; callers decide how to react
 to a ``None`` result.
 """
 
-from typing import Optional
+from typing import Any, Optional
 
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 import models
 import schemas
 
+# Columns returned by the list endpoint. The IVR tree is deliberately left out:
+# it is by far the largest column and the list only needs to know whether an
+# agency has one.
+_SUMMARY_COLUMNS = (
+    models.Agency.id,
+    models.Agency.name,
+    models.Agency.abbreviation,
+    models.Agency.region,
+    models.Agency.phone_ranges,
+    models.Agency.has_schedule,
+    models.Agency.business_hours,
+    models.Agency.after_hours_mailbox,
+)
 
-def list_agencies(db: Session) -> list[models.Agency]:
-    """Return all agencies."""
-    return db.query(models.Agency).all()
+# True when the stored IVR is a non-empty list of nodes. SQL NULL, JSON null
+# (how SQLAlchemy stores Python None) and an empty list all count as "no IVR".
+# Computed by SQLite so the JSON text never reaches Python.
+_HAS_IVR = (func.coalesce(func.json_array_length(models.Agency.ivr), 0) > 0).label("has_ivr")
+
+
+def list_agency_summaries(db: Session) -> list[dict[str, Any]]:
+    """Return every agency without its IVR tree, ordered by name."""
+    stmt = select(*_SUMMARY_COLUMNS, _HAS_IVR).order_by(
+        func.lower(models.Agency.name), models.Agency.id
+    )
+    return [dict(row) for row in db.execute(stmt).mappings()]
 
 
 def get_agency(db: Session, agency_id: int) -> Optional[models.Agency]:
