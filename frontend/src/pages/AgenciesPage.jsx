@@ -23,7 +23,7 @@ const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
 
 // Estado inicial cuando no hay uno guardado en la sesión.
 const DEFAULT_GRID_STATE = {
-  pagination: { paginationModel: { page: 0, pageSize: 25 } },
+  pagination: { paginationModel: { page: 0, pageSize: 10 } },
   sorting: { sortModel: [{ field: 'name', sort: 'asc' }] },
   columns: { columnVisibilityModel: { after_hours_mailbox: false } },
 }

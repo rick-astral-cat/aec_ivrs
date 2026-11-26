@@ -15,6 +15,7 @@ import { displayName } from '../api/users'
 import { PERMISSIONS } from '../auth/permissions'
 import { useAuth } from '../context/AuthContext'
 import { usePermission } from '../hooks/usePermission'
+import MarkdownText from '../components/MarkdownText'
 import ActivitiesPanel from '../components/projects/ActivitiesPanel'
 import ActivityStatsPanel from '../components/projects/ActivityStatsPanel'
 import ActivityDialog from '../components/projects/ActivityDialog'
@@ -176,12 +177,11 @@ export default function ProjectDetailPage() {
       {/* Datos del proyecto y avance */}
       <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', p: 2.5 }}>
         <Typography variant="h5" fontWeight={600}>{name}</Typography>
-        <Typography
-          color="text.secondary"
-          sx={{ mt: 0.5, whiteSpace: 'pre-line', fontStyle: description ? 'normal' : 'italic' }}
-        >
-          {description || 'Sin descripción'}
-        </Typography>
+        {description ? (
+          <MarkdownText sx={{ mt: 1, typography: 'body1' }}>{description}</MarkdownText>
+        ) : (
+          <Typography color="text.secondary" sx={{ mt: 0.5, fontStyle: 'italic' }}>Sin descripción</Typography>
+        )}
 
         <Box sx={{ mt: 2.5 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>

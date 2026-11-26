@@ -3,6 +3,7 @@ import TaskAltIcon from '@mui/icons-material/TaskAlt'
 import { TEAMS_COLOR } from '../TeamsIcon'
 import MemberChips from './MemberChips'
 import { PROJECT_ROLE_LABELS, progressPercent } from './projectUtils'
+import { markdownToPlainText } from '../markdownUtils'
 
 // Limita un texto a N líneas con "..." al final.
 const clampLines = (lines) => ({
@@ -67,7 +68,7 @@ export default function ProjectCard({ project, onOpen }) {
             color="text.secondary"
             sx={{ ...clampLines(2), minHeight: '2.86em', fontStyle: description ? 'normal' : 'italic' }}
           >
-            {description || 'Sin descripción'}
+            {markdownToPlainText(description) || 'Sin descripción'}
           </Typography>
 
           <Box>
